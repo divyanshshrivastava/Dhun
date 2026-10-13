@@ -50,3 +50,12 @@ PROGRESS_REPORT.md
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# local conversation / scratch / agent logs
+/.system_generated/
+/.gemini/
+/.agents/
+/scratch/
+/brain/
+*.log
+*.conversation*
