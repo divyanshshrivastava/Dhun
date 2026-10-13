@@ -6,11 +6,15 @@ import crypto from 'crypto';
 import { getCurrentIstDateString } from '../lib/istDate';
 import { CatalogSongItem } from '../lib/search/catalogSearch';
 
-// Computes a deterministic integer index from the date string
-export function computeDailyFallbackIndex(dateString: string, totalAvailableSongs: number): number {
+// Computes a deterministic integer index from the date string and server secret salt
+export function computeDailyFallbackIndex(
+  dateString: string,
+  totalAvailableSongs: number,
+  serverSecret = process.env.DHUN_SERVER_SECRET || 'dhun_server_secret_fallback_salt_2026'
+): number {
   if (totalAvailableSongs <= 0) return 0;
   const hash = crypto
-    .createHash('sha256')
+    .createHmac('sha256', serverSecret)
     .update(`dhun_daily_seed_salt_${dateString}`)
     .digest('hex');
 

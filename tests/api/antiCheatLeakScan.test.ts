@@ -1,22 +1,31 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { NextRequest } from 'next/server';
 import { POST as handleSessionPost } from '../../src/app/api/game/session/route';
 import { POST as handleGuessPost } from '../../src/app/api/game/guess/route';
+import { GET as handleClipGet } from '../../src/app/api/game/clip/[token]/route';
 import { getGameEngine } from '../../src/services/gameEngine';
 import seedCatalog from '../../src/db/seed/songs.json';
 
-// Recursively inspects any object, array, or primitive for leaked forbidden strings
+// Recursively inspects any object, array, string, or header collection for leaked forbidden strings
 function assertNoLeak(target: unknown, forbiddenStrings: string[], path = 'root') {
   if (target === null || target === undefined) return;
 
   if (typeof target === 'string') {
     for (const forbidden of forbiddenStrings) {
-      if (forbidden.length > 2 && target.toLowerCase().includes(forbidden.toLowerCase())) {
+      if (forbidden && forbidden.length > 2 && target.toLowerCase().includes(forbidden.toLowerCase())) {
         throw new Error(
-          `ANTI-CHEAT VIOLATION: Solution text "${forbidden}" leaked in response at path "${path}": ${target}`
+          `ANTI-CHEAT VIOLATION: Solution text "${forbidden}" leaked in string at path "${path}": ${target}`
         );
       }
     }
+    return;
+  }
+
+  if (target instanceof Headers) {
+    target.forEach((val, key) => {
+      assertNoLeak(key, forbiddenStrings, `${path}.headerKey[${key}]`);
+      assertNoLeak(val, forbiddenStrings, `${path}.headerValue[${key}]`);
+    });
     return;
   }
 
@@ -44,7 +53,7 @@ function assertNoLeak(target: unknown, forbiddenStrings: string[], path = 'root'
 describe('Anti-Cheat API Leak Scanner', () => {
   const guestId = crypto.randomUUID();
 
-  it('verifies that title, songId, workId, and solution answer NEVER leak before game over', async () => {
+  it('verifies that title, songId, workId, and solution answer NEVER leak into response JSON, headers, URLs, or token payloads', async () => {
     const engine = getGameEngine();
 
     // 1. Start a Practice Session
@@ -74,14 +83,40 @@ describe('Anti-Cheat API Leak Scanner', () => {
       solutionSong.id,
       solutionSong.title,
       solutionSong.work_id,
+      solutionSong.movie_or_album || '',
       ...solutionSong.artists,
-    ];
+    ].filter(s => s.length > 2);
 
-    // Assert session creation response is 100% leak-free
-    assertNoLeak(sessionData, forbiddenStrings, 'sessionData');
+    // Deep scan response headers, body JSON, and clip stream URL
+    assertNoLeak(startRes.headers, forbiddenStrings, 'session.headers');
+    assertNoLeak(sessionData, forbiddenStrings, 'session.body');
+    assertNoLeak(sessionData.currentClip?.clipStreamUrl, forbiddenStrings, 'session.clipStreamUrl');
     expect(sessionData.answer).toBeUndefined();
 
-    // 2. Simulate 5 consecutive wrong guesses / skips
+    // 2. Strict inspection of the clip token payload
+    const initialToken = sessionData.currentClip?.clipStreamUrl.replace('/api/game/clip/', '')!;
+    const [base64Payload, signature] = initialToken.split('.');
+    expect(base64Payload).toBeDefined();
+    expect(signature).toBeDefined();
+
+    const decodedPayload = Buffer.from(base64Payload, 'base64url').toString('utf-8');
+    assertNoLeak(decodedPayload, forbiddenStrings, 'token.decodedPayload');
+
+    // Confirm token payload contains ONLY (sessionId, attemptIndex, expiresAt)
+    const tokenParts = decodedPayload.split(':');
+    expect(tokenParts).toHaveLength(3);
+    const [tokenSessionId, tokenAttemptIndex, tokenExpiresAt] = tokenParts;
+    expect(tokenSessionId).toBe(sessionId);
+    expect(parseInt(tokenAttemptIndex, 10)).toBe(0);
+    expect(parseInt(tokenExpiresAt, 10)).toBeGreaterThan(Date.now());
+
+    // 3. Test clip streaming headers
+    const clipReq = new NextRequest(`http://localhost:3000${sessionData.currentClip?.clipStreamUrl}`);
+    const clipRes = await handleClipGet(clipReq, { params: Promise.resolve({ token: initialToken }) });
+    expect(clipRes.status).toBe(200);
+    assertNoLeak(clipRes.headers, forbiddenStrings, 'clip.headers');
+
+    // 4. Simulate 5 consecutive wrong guesses / skips
     // None of these intermediate responses may leak the secret solution!
     for (let attempt = 0; attempt < 5; attempt++) {
       const skipReq = new NextRequest('http://localhost:3000/api/game/guess', {
@@ -103,12 +138,14 @@ describe('Anti-Cheat API Leak Scanner', () => {
       expect(skipData.status).toBe('IN_PROGRESS');
       expect(skipData.gameOver).toBe(false);
 
-      // Deep scan the response JSON for leaks
+      // Deep scan headers, response data, and next clip stream URL
+      assertNoLeak(skipRes.headers, forbiddenStrings, `attempt_${attempt}_skipRes.headers`);
       assertNoLeak(skipData, forbiddenStrings, `attempt_${attempt}_skipData`);
+      assertNoLeak(skipData.nextClip?.clipStreamUrl, forbiddenStrings, `attempt_${attempt}_nextClipUrl`);
       expect(skipData.answer).toBeUndefined();
     }
 
-    // 3. Final attempt (6th try): game over -> answer is now legitimately revealed
+    // 5. Final attempt (6th try): game over -> answer is now legitimately revealed
     const finalReq = new NextRequest('http://localhost:3000/api/game/guess', {
       method: 'POST',
       headers: {
