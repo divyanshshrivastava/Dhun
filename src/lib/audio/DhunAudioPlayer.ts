@@ -30,6 +30,7 @@ export class DhunAudioPlayer {
   private animFrameId: number | null = null;
   private isUnlocked: boolean = false;
   private currentAttemptIndex: number = 0;
+  private tokenRefreshCallback: ((attemptIndex: number) => Promise<string>) | null = null;
 
   constructor(callbacks?: PlayerCallbacks) {
     if (callbacks) {
@@ -88,6 +89,10 @@ export class DhunAudioPlayer {
     }
   }
 
+  setTokenRefreshCallback(cb: (attemptIndex: number) => Promise<string>): void {
+    this.tokenRefreshCallback = cb;
+  }
+
   // Immediately fetches and decodes an audio slice into memory
   async loadClip(
     clipStreamUrl: string,
@@ -102,14 +107,17 @@ export class DhunAudioPlayer {
     this.pauseOffsetSec = 0;
 
     let targetUrl = clipStreamUrl;
+    const effectiveRefresh =
+      refreshTokenCallback ||
+      (this.tokenRefreshCallback ? () => this.tokenRefreshCallback!(attemptIndex) : undefined);
 
     try {
       let response = await fetch(targetUrl);
 
       // If token expired (410 Gone), try refreshing once automatically
-      if ((response.status === 410 || response.status === 403) && refreshTokenCallback) {
+      if ((response.status === 410 || response.status === 403) && effectiveRefresh) {
         try {
-          targetUrl = await refreshTokenCallback();
+          targetUrl = await effectiveRefresh();
           response = await fetch(targetUrl);
         } catch {
           // fallback to error
@@ -133,6 +141,18 @@ export class DhunAudioPlayer {
       this.callbacks.onError?.(errorMsg);
       return false;
     }
+  }
+
+  // Convenience helper that derives standard cumulative duration if not provided
+  async loadAndDecodeClip(
+    clipStreamUrl: string,
+    attemptIndex: number,
+    durationMs?: number
+  ): Promise<boolean> {
+    const CUMULATIVE_DURATIONS_MS = [100, 500, 1500, 4000, 8000, 15000];
+    const resolvedDuration =
+      durationMs ?? CUMULATIVE_DURATIONS_MS[attemptIndex] ?? 15000;
+    return this.loadClip(clipStreamUrl, attemptIndex, resolvedDuration);
   }
 
   // Hardware-timed playback using AudioBufferSourceNode.onended (NO setTimeout)
@@ -278,5 +298,9 @@ export class DhunAudioPlayer {
     }
     this.audioCtx = null;
     this.currentBuffer = null;
+  }
+
+  dispose(): void {
+    this.destroy();
   }
 }
