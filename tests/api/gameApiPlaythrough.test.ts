@@ -77,7 +77,7 @@ describe('Dhun Game API - Full End-to-End Integration Playthrough', () => {
     // Step 5: Submit Incorrect Guess on Attempt 0
     // -------------------------------------------------------------
     const engine = getGameEngine();
-    const rawSession = engine.getSessionById(sessionId)!;
+    const rawSession = (await engine.getSessionById(sessionId))!;
     const solutionSong = seedCatalog.songs.find(s => s.id === rawSession.songId)!;
 
     // Pick a deliberately wrong song from the catalog

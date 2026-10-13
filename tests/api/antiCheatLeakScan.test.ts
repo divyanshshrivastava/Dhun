@@ -76,7 +76,7 @@ describe('Anti-Cheat API Leak Scanner', () => {
     expect(sessionToken).toBeDefined();
 
     // Look up the underlying secret solution song directly from the server engine
-    const rawSession = engine.getSessionById(sessionId)!;
+    const rawSession = (await engine.getSessionById(sessionId))!;
     const solutionSong = seedCatalog.songs.find(s => s.id === rawSession.songId)!;
 
     const forbiddenStrings = [

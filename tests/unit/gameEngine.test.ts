@@ -1,64 +1,23 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, beforeAll } from 'vitest';
 import { GameEngine, CLIP_DURATIONS_MS } from '../../src/services/gameEngine';
-import { CatalogSongItem } from '../../src/lib/search/catalogSearch';
 import { verifyClipStreamToken } from '../../src/lib/security/clipToken';
+import { getDb, schema } from '../../src/db';
+import { eq } from 'drizzle-orm';
+import seedCatalog from '../../src/db/seed/songs.json';
 
-const testCatalog: CatalogSongItem[] = [
-  {
-    id: 'song-dilbar-1999',
-    workId: 'work-dilbar',
-    title: 'Dilbar Dilbar (1999)',
-    aliases: ['dilbar sirf tum'],
-    artists: ['Alka Yagnik'],
-    movieOrAlbum: 'Sirf Tum',
-    language: 'hindi',
-    era: '90s',
-    genres: ['bollywood', 'romantic'],
-  },
-  {
-    id: 'song-dilbar-2018',
-    workId: 'work-dilbar',
-    title: 'Dilbar (2018 Remake)',
-    aliases: ['dilbar satyameva jayate'],
-    artists: ['Neha Kakkar', 'Dhvani Bhanushali'],
-    movieOrAlbum: 'Satyameva Jayate',
-    language: 'hindi',
-    era: '2010s',
-    genres: ['bollywood', 'dance'],
-  },
-  {
-    id: 'song-chaiyya-1998',
-    workId: 'work-chaiyya',
-    title: 'Chaiyya Chaiyya',
-    aliases: ['chal chaiyya chaiyya'],
-    artists: ['Sukhwinder Singh', 'Sapna Awasthi'],
-    movieOrAlbum: 'Dil Se',
-    language: 'hindi',
-    era: '90s',
-    genres: ['bollywood', 'folk'],
-  },
-  {
-    id: 'song-kal-ho-naa-ho',
-    workId: 'work-khnh',
-    title: 'Kal Ho Naa Ho',
-    aliases: ['har ghadi badal rahi hai'],
-    artists: ['Sonu Nigam'],
-    movieOrAlbum: 'Kal Ho Naa Ho',
-    language: 'hindi',
-    era: '2000s',
-    genres: ['bollywood', 'sad'],
-  },
-];
-
-describe('GameEngine - Server-Authoritative State Machine', () => {
+describe('GameEngine - Server-Authoritative State Machine Backed by Drizzle PostgreSQL', () => {
   let engine: GameEngine;
 
+  beforeAll(async () => {
+    await getDb();
+  }, 15000);
+
   beforeEach(() => {
-    engine = new GameEngine(testCatalog);
+    engine = new GameEngine();
   });
 
   it('creates a daily challenge session without leaking solution or songId', async () => {
-    const guestId = '11111111-2222-3333-4444-555555555555';
+    const guestId = crypto.randomUUID();
     const session = await engine.getOrCreateDailySession(guestId, '2026-10-14');
 
     expect(session.sessionId).toBeDefined();
@@ -83,7 +42,7 @@ describe('GameEngine - Server-Authoritative State Machine', () => {
   });
 
   it('resumes existing daily challenge session for the same guest and date without reissuing secret', async () => {
-    const guestId = 'guest-resume-test';
+    const guestId = crypto.randomUUID();
     const firstCall = await engine.getOrCreateDailySession(guestId, '2026-10-14');
     expect(firstCall.sessionToken).toBeDefined();
 
@@ -95,9 +54,9 @@ describe('GameEngine - Server-Authoritative State Machine', () => {
   });
 
   it('evaluates correct guess on first attempt and reveals answer + shareGrid', async () => {
-    const guestId = 'guest-win-test';
+    const guestId = crypto.randomUUID();
     const sessionRes = await engine.getOrCreateDailySession(guestId, '2026-10-14');
-    const rawSession = engine.getSessionById(sessionRes.sessionId)!;
+    const rawSession = (await engine.getSessionById(sessionRes.sessionId))!;
 
     // Guess the exact solution song
     const guessRes = await engine.submitGuess(
@@ -116,28 +75,38 @@ describe('GameEngine - Server-Authoritative State Machine', () => {
     expect(guessRes.shareGrid).toContain('🟩');
   });
 
-  it('accepts remake as correct answer via canonical work_id equivalence', async () => {
-    // If solution is Dilbar 1999, guessing Dilbar 2018 remake MUST count as correct!
-    const session = await engine.createPracticeSession('guest-remake-test');
-    const rawSession = engine.getSessionById(session.sessionId)!;
-    // Force target song to be Dilbar 1999
-    rawSession.songId = 'song-dilbar-1999';
+  it('accepts remake as correct answer via canonical work_id equivalence in PostgreSQL', async () => {
+    const guestId = crypto.randomUUID();
+    const session = await engine.createPracticeSession(guestId);
 
+    // Locate Dilbar 1999 and Dilbar 2018 remake in catalog (they share the same canonical work_id)
+    const dilbar1999 = seedCatalog.songs.find(s => s.title.includes('1999') || s.work_id === '69acc111-e99d-4bba-8b93-2b462a3edd29')!;
+    const dilbarRemake = seedCatalog.songs.find(s => s.work_id === dilbar1999.work_id && s.id !== dilbar1999.id)!;
+
+    // Set the game session's target song in the database to Dilbar 1999
+    const db = await getDb();
+    await db
+      .update(schema.gameSessions)
+      .set({ song_id: dilbar1999.id })
+      .where(eq(schema.gameSessions.id, session.sessionId));
+
+    // Guess the remake recording!
     const guessRes = await engine.submitGuess(
       session.sessionId,
       session.sessionToken!,
       'GUESS',
-      'song-dilbar-2018' // Guess the remake!
+      dilbarRemake.id
     );
 
     expect(guessRes.correct).toBe(true);
     expect(guessRes.gameOver).toBe(true);
     expect(guessRes.status).toBe('WON');
-    expect(guessRes.answer?.title).toBe('Dilbar Dilbar (1999)');
+    expect(guessRes.answer?.title).toBe(dilbar1999.title);
   });
 
   it('advances through 6 attempts on skips and transitions to LOST with answer revealed', async () => {
-    const session = await engine.createPracticeSession('guest-lost-test');
+    const guestId = crypto.randomUUID();
+    const session = await engine.createPracticeSession(guestId);
     const token = session.sessionToken!;
 
     for (let attempt = 0; attempt < 5; attempt++) {
@@ -163,7 +132,8 @@ describe('GameEngine - Server-Authoritative State Machine', () => {
   });
 
   it('handles give-up and immediately marks session as LOST and reveals answer', async () => {
-    const session = await engine.createPracticeSession('guest-giveup-test');
+    const guestId = crypto.randomUUID();
+    const session = await engine.createPracticeSession(guestId);
     const giveUpRes = await engine.giveUp(session.sessionId, session.sessionToken!);
 
     expect(giveUpRes.gameOver).toBe(true);
@@ -176,8 +146,9 @@ describe('GameEngine - Server-Authoritative State Machine', () => {
     ).rejects.toThrow(/already finished/);
   });
 
-  it('serializes concurrent rapid guesses without race conditions or skipping attempts', async () => {
-    const session = await engine.createPracticeSession('guest-race-test');
+  it('serializes concurrent guesses at the database level using transactions and row locks', async () => {
+    const guestId = crypto.randomUUID();
+    const session = await engine.createPracticeSession(guestId);
     const token = session.sessionToken!;
 
     // Send 3 skips concurrently at the exact same millisecond
@@ -191,7 +162,7 @@ describe('GameEngine - Server-Authoritative State Machine', () => {
     const attempts = results.map(r => r.attemptsUsed).sort((a, b) => a - b);
     expect(attempts).toEqual([1, 2, 3]);
 
-    const rawSession = engine.getSessionById(session.sessionId)!;
+    const rawSession = (await engine.getSessionById(session.sessionId))!;
     expect(rawSession.attemptsUsed).toBe(3);
     expect(rawSession.guesses).toHaveLength(3);
   });
