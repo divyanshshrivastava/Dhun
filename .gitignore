@@ -37,7 +37,7 @@ yarn-error.log*
 # audio masters and raw assets
 /audio-masters/
 /raw-audio/
-/storage/clips/
+/storage/
 *.raw
 
 # local documentation

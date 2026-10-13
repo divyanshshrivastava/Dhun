@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
-    "db:seed": "tsx src/db/seed/seed.ts"
+    "db:seed": "tsx src/db/seed/seed.ts",
+    "ingest": "tsx scripts/ingest.ts"
   },
   "dependencies": {
     "canvas-confetti": "^1.9.4",
