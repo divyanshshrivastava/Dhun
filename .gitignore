@@ -30,8 +30,18 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
+# env files
 .env*
+!.env.example
+
+# audio masters and raw assets
+/audio-masters/
+/raw-audio/
+/storage/clips/
+*.raw
+
+# local documentation
+IMPLEMENTATION_PLAN.md
 
 # vercel
 .vercel
