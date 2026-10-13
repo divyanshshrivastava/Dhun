@@ -67,8 +67,12 @@ export async function GET(
     // 5. If clip is missing from storage, generate on-demand via synthetic tone master
     const clipExists = await clipStorage.hasClip(storageKey);
     if (!clipExists) {
-      const syntheticMaster = await syntheticProvider.fetchAudioMaster(session.songId);
-      const slices = await audioCutter.processAndSliceMaster(syntheticMaster.buffer, {
+      const syntheticMaster = await syntheticProvider.fetchTrack({
+        id: session.songId,
+        title: session.songId,
+      });
+      const masterBuffer = syntheticMaster.audioBuffer;
+      const slices = await audioCutter.sliceTrack(masterBuffer, 'wav', {
         songId: session.songId,
       });
 
