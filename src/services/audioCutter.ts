@@ -201,7 +201,7 @@ export class AudioCutterService {
     } finally {
       // Clean up temporary files so we don't leak disk space
       for (const tempFile of temporaryFilesCreated) {
-        if (fs.existsSync(tempFile)) {
+        if (fs.existsSync(/*turbopackIgnore: true*/ tempFile)) {
           try {
             fs.unlinkSync(tempFile);
           } catch {

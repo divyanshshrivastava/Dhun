@@ -85,7 +85,7 @@ export async function GET(
     const storedClip = await clipStorage.getClip(storageKey);
 
     // 6. Return audio stream with strict private no-store headers
-    return new Response(storedClip.buffer, {
+    return new Response(new Uint8Array(storedClip.buffer), {
       status: 200,
       headers: {
         'Content-Type': storedClip.mimeType,
