@@ -82,19 +82,62 @@ export class AudioCutterService {
       // 1. Write the incoming master audio buffer to disk
       fs.writeFileSync(tempInputFile, masterAudioBuffer);
 
-      // 2. Single-pass master loudness normalization to -16 LUFS (EBU R128)
-      // This ensures identical, balanced volume across all slices without per-slice pumping artifacts
-      const normArgs = [
-        '-y',
-        '-i', tempInputFile,
-        '-af', 'loudnorm=I=-16:TP=-1.5:LRA=11',
-        '-map_metadata', '-1', // Strip all metadata tags
-        '-ar', '44100',
-        '-ac', '2',
-        tempNormalizedMaster,
-      ];
+      // 2. Two-pass linear EBU R128 loudness normalization
+      // Pass 1: Measure loudness statistics of the master track
+      let twoPassApplied = false;
+      try {
+        const measureArgs = [
+          '-y',
+          '-i', tempInputFile,
+          '-af', 'loudnorm=I=-16:TP=-1.5:LRA=11:print_format=json',
+          '-f', 'null',
+          '-',
+        ];
 
-      await execFileAsync(this.ffmpegPath, normArgs);
+        // In ffmpeg, audio filter stats are output to stderr
+        let measureOutput = '';
+        try {
+          const res = await execFileAsync(this.ffmpegPath, measureArgs);
+          measureOutput = (res.stderr || res.stdout || '').toString();
+        } catch (err: unknown) {
+          // Even if exit code is non-zero, ffmpeg prints filter JSON to stderr
+          const stderr = (err as { stderr?: string }).stderr;
+          measureOutput = stderr ? stderr.toString() : '';
+        }
+
+        const jsonMatch = measureOutput.match(/\{[\s\S]*?"input_i"[\s\S]*?\}/);
+        if (jsonMatch) {
+          const stats = JSON.parse(jsonMatch[0]);
+          const linearArgs = [
+            '-y',
+            '-i', tempInputFile,
+            '-af',
+            `loudnorm=I=-16:TP=-1.5:LRA=11:measured_I=${stats.input_i}:measured_TP=${stats.input_tp}:measured_LRA=${stats.input_lra}:measured_thresh=${stats.input_thresh}:offset=${stats.target_offset}:linear=true`,
+            '-map_metadata', '-1',
+            '-ar', '44100',
+            '-ac', '2',
+            tempNormalizedMaster,
+          ];
+          await execFileAsync(this.ffmpegPath, linearArgs);
+          twoPassApplied = true;
+        }
+      } catch (measureErr) {
+        // Fallback to single-pass if measure extraction failed
+        console.warn('Bhai two-pass loudnorm measurement fell back to single pass:', (measureErr as Error).message);
+      }
+
+      if (!twoPassApplied) {
+        const fallbackArgs = [
+          '-y',
+          '-i', tempInputFile,
+          '-af', 'loudnorm=I=-16:TP=-1.5:LRA=11',
+          '-map_metadata', '-1',
+          '-ar', '44100',
+          '-ac', '2',
+          tempNormalizedMaster,
+        ];
+        await execFileAsync(this.ffmpegPath, fallbackArgs);
+      }
 
       const generatedSlices: CutClipResult[] = [];
 
