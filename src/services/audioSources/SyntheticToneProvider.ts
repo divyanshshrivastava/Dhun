@@ -3,17 +3,36 @@
 
 import { AudioSourceProvider, AudioSourceMetadata, AudioSourceResult } from './AudioSourceProvider';
 
-// Frequencies for Bilawal That (standard Indian major scale in C)
-const SA_RE_GA_MA_FREQUENCIES = [
-  261.63, // Sa  (C4)
-  293.66, // Re  (D4)
-  329.63, // Ga  (E4)
-  349.23, // Ma  (F4)
-  392.00, // Pa  (G4)
-  440.00, // Dha (A4)
-  493.88, // Ni  (B4)
-  523.25, // Sa' (C5)
+// Indian scale intervals relative to root Sa (1.0)
+// Bilawal (Major), Yaman (Tivra Ma), Bhairav (Komal Re & Dha), Kafi (Komal Ga & Ni)
+const RAGA_SCALES = [
+  // Bilawal (Natural Major): Sa, Re, Ga, Ma, Pa, Dha, Ni, Sa'
+  [1.0, 9 / 8, 5 / 4, 4 / 3, 3 / 2, 5 / 3, 15 / 8, 2.0],
+  // Yaman (Lydian with Tivra Ma): Sa, Re, Ga, Ma#, Pa, Dha, Ni, Sa'
+  [1.0, 9 / 8, 5 / 4, 45 / 32, 3 / 2, 5 / 3, 15 / 8, 2.0],
+  // Bhairav (Double Harmonic): Sa, Re_flat, Ga, Ma, Pa, Dha_flat, Ni, Sa'
+  [1.0, 16 / 15, 5 / 4, 4 / 3, 3 / 2, 8 / 5, 15 / 8, 2.0],
+  // Kafi (Dorian with Komal Ga & Ni): Sa, Re, Ga_flat, Ma, Pa, Dha, Ni_flat, Sa'
+  [1.0, 9 / 8, 6 / 5, 4 / 3, 3 / 2, 5 / 3, 9 / 5, 2.0],
 ];
+
+const ROOT_SA_FREQUENCIES = [
+  130.81, // C3
+  146.83, // D3
+  164.81, // E3
+  174.61, // F3
+  196.00, // G3
+  220.00, // A3
+];
+
+function getDeterministicSeed(str: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < str.length; i++) {
+    h ^= str.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return Math.abs(h);
+}
 
 // Builds a standard 44-byte RIFF/WAVE header for 44.1kHz 16-bit stereo PCM
 export function createWavPcmHeader(dataByteLength: number, sampleRate = 44100, channels = 2): Buffer {
@@ -50,38 +69,58 @@ export class SyntheticToneProvider implements AudioSourceProvider {
     return true;
   }
 
-  // Synthesize a beautiful harmonically rich drone + melody
+  // Synthesize a seeded, distinct Indian melodic contour and Tanpura drone
   async fetchTrack(meta: AudioSourceMetadata): Promise<AudioSourceResult> {
-    const durationSeconds = 16; // Generates 16s so all 6 attempts (up to 15s) can be cleanly cut
+    // Generate 22s master (comfortably longer than 15s max attempt slice)
+    const durationSeconds = 22;
     const sampleRate = 44100;
     const channels = 2;
     const totalSampleFrames = Math.floor(sampleRate * durationSeconds);
-    const bytesPerFrame = channels * 2; // 16-bit stereo = 4 bytes per frame
+    const bytesPerFrame = channels * 2;
     const dataByteLength = totalSampleFrames * bytesPerFrame;
 
     const pcmDataBuffer = Buffer.alloc(dataByteLength);
-    const toneSwitchInterval = Math.floor(sampleRate * 2.0); // Switch raga note every 2 seconds
+
+    // Derive seeded musical parameters from the song identity
+    const seed = getDeterministicSeed(meta.id || meta.title || 'dhun_raga');
+    const rootSa = ROOT_SA_FREQUENCIES[seed % ROOT_SA_FREQUENCIES.length];
+    const ragaScale = RAGA_SCALES[(seed >> 3) % RAGA_SCALES.length];
+    const paFreq = rootSa * 1.5; // Pancham drone
+
+    // Pre-calculate melodic note progression for this specific song (12 distinct steps)
+    const melodyProgression: number[] = [];
+    let state = seed;
+    for (let step = 0; step < 12; step++) {
+      state = (Math.imul(state, 1103515245) + 12345) & 0x7fffffff;
+      const scaleDegree = state % ragaScale.length;
+      melodyProgression.push(rootSa * 2 * ragaScale[scaleDegree]); // Octave above drone
+    }
+
+    // Step duration varies slightly per song (1.1s to 1.8s)
+    const switchIntervalSec = 1.1 + ((seed % 7) * 0.1);
+    const toneSwitchFrames = Math.floor(sampleRate * switchIntervalSec);
 
     let writeOffset = 0;
     for (let frameIndex = 0; frameIndex < totalSampleFrames; frameIndex++) {
       const currentTimeSec = frameIndex / sampleRate;
 
-      // Select active melody note
-      const noteIndex = Math.floor(frameIndex / toneSwitchInterval) % SA_RE_GA_MA_FREQUENCIES.length;
-      const melodyFreq = SA_RE_GA_MA_FREQUENCIES[noteIndex];
+      // Active melody note from seeded progression
+      const noteStepIndex = Math.floor(frameIndex / toneSwitchFrames) % melodyProgression.length;
+      const activeMelodyFreq = melodyProgression[noteStepIndex];
 
-      // Base Tanpura drone on fundamental Sa (130.81 Hz = C3) and Pa (196.00 Hz = G3)
-      const droneSa = Math.sin(2 * Math.PI * 130.81 * currentTimeSec);
-      const dronePa = Math.sin(2 * Math.PI * 196.00 * currentTimeSec);
-      const droneComponent = (droneSa + dronePa) * 0.2;
+      // Tanpura drone (Sa + Pa fundamentals)
+      const droneSa = Math.sin(2 * Math.PI * rootSa * currentTimeSec);
+      const dronePa = Math.sin(2 * Math.PI * paFreq * currentTimeSec);
+      const droneComponent = (droneSa + dronePa) * 0.22;
 
-      // Active melody note with pleasant harmonic overtones
-      const fundamental = Math.sin(2 * Math.PI * melodyFreq * currentTimeSec);
-      const secondHarmonic = Math.sin(2 * Math.PI * (melodyFreq * 2) * currentTimeSec) * 0.25;
-      const melodyComponent = (fundamental + secondHarmonic) * 0.4;
+      // Lead melody tone with rich Indian classical harmonics (flute / sitar resonance)
+      const fund = Math.sin(2 * Math.PI * activeMelodyFreq * currentTimeSec);
+      const harm2 = Math.sin(2 * Math.PI * (activeMelodyFreq * 2) * currentTimeSec) * 0.3;
+      const harm3 = Math.sin(2 * Math.PI * (activeMelodyFreq * 3) * currentTimeSec) * 0.15;
+      const melodyComponent = (fund + harm2 + harm3) * 0.42;
 
-      // Gentle envelope attack at the very beginning to avoid abrupt DC click
-      const attackEnvelope = Math.min(1.0, currentTimeSec * 20.0);
+      // Soft anti-pop envelope at the very start
+      const attackEnvelope = Math.min(1.0, currentTimeSec * 25.0);
       const mixedSample = (droneComponent + melodyComponent) * attackEnvelope;
 
       // Convert float [-1.0, 1.0] to 16-bit signed integer [-32768, 32767]
@@ -89,7 +128,7 @@ export class SyntheticToneProvider implements AudioSourceProvider {
 
       // Left Channel
       pcmDataBuffer.writeInt16LE(sampleInt16, writeOffset);
-      // Right Channel (subtle stereo delay effect)
+      // Right Channel (gentle phase offset for spatial width)
       pcmDataBuffer.writeInt16LE(sampleInt16, writeOffset + 2);
 
       writeOffset += 4;
@@ -101,7 +140,7 @@ export class SyntheticToneProvider implements AudioSourceProvider {
     return {
       audioBuffer: completeWavBuffer,
       mimeType: 'audio/wav',
-      attribution: `Synthetic Indian scale generated for "${meta.title}"`,
+      attribution: `Synthetic Indian scale (seed: ${seed % 1000}) for "${meta.title}"`,
       sourceType: 'synthetic_tone',
     };
   }

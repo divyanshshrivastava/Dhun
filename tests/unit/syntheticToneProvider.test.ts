@@ -28,7 +28,17 @@ describe('SyntheticToneProvider - Offline Indian scale audio generator', () => {
     // BitsPerSample = 16
     expect(buf.readUInt16LE(34)).toBe(16);
 
-    // Verify total size covers 16 seconds (44100 * 16 * 4 + 44 bytes = 2,822,444 bytes)
-    expect(buf.byteLength).toBe(44 + 44100 * 16 * 4);
+    // Verify total size covers 22 seconds (44100 * 22 * 4 + 44 bytes = 3,880,844 bytes)
+    expect(buf.byteLength).toBe(44 + 44100 * 22 * 4);
+  });
+
+  it('generates distinctly different seeded melodies for different songs', async () => {
+    const provider = new SyntheticToneProvider();
+    const trackA = await provider.fetchTrack({ id: 'song-a', title: 'Kal Ho Naa Ho' });
+    const trackB = await provider.fetchTrack({ id: 'song-b', title: 'Channa Mereya' });
+
+    expect(trackA.audioBuffer.byteLength).toBe(trackB.audioBuffer.byteLength);
+    // Buffers must not be identical because seeds and scale intervals differ
+    expect(trackA.audioBuffer.equals(trackB.audioBuffer)).toBe(false);
   });
 });
