@@ -1,26 +1,132 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+  --bg-primary: #080c14;
+  --bg-secondary: #0f172a;
+  --bg-card: rgba(15, 23, 42, 0.75);
+  --bg-card-hover: rgba(30, 41, 59, 0.75);
+  --border-subtle: rgba(255, 255, 255, 0.08);
+  --border-active: rgba(255, 153, 51, 0.5);
+  
+  --saffron: #ff9933;
+  --saffron-glow: rgba(255, 153, 51, 0.25);
+  --emerald: #10b981;
+  --emerald-glow: rgba(16, 185, 129, 0.25);
+  --crimson: #ef4444;
+  --crimson-glow: rgba(239, 68, 68, 0.25);
+  --gold: #f59e0b;
+  --gold-glow: rgba(245, 158, 11, 0.25);
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --text-main: #f8fafc;
+  --text-muted: #94a3b8;
+  --text-dim: #64748b;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: var(--bg-primary);
+  color: var(--text-main);
+  font-family: var(--font-geist-sans), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans Devanagari", sans-serif;
+  min-height: 100dvh;
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Glassmorphism panel */
+.dhun-glass {
+  background: rgba(15, 23, 42, 0.7);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--border-subtle);
+  border-radius: 1rem;
+}
+
+.dhun-glass-glow {
+  background: rgba(15, 23, 42, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--border-active);
+  box-shadow: 0 0 25px var(--saffron-glow);
+}
+
+/* Smooth custom scrollbars for dropdowns and lists */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* Subtle audio wave animation */
+@keyframes audioPulse {
+  0%, 100% {
+    transform: scaleY(0.4);
+    opacity: 0.6;
+  }
+  50% {
+    transform: scaleY(1);
+    opacity: 1;
+  }
+}
+
+.animate-audio-bar-1 {
+  animation: audioPulse 0.9s ease-in-out infinite alternate;
+}
+.animate-audio-bar-2 {
+  animation: audioPulse 1.1s ease-in-out 0.2s infinite alternate;
+}
+.animate-audio-bar-3 {
+  animation: audioPulse 0.8s ease-in-out 0.4s infinite alternate;
+}
+.animate-audio-bar-4 {
+  animation: audioPulse 1.2s ease-in-out 0.1s infinite alternate;
+}
+
+/* Pop animation for guess reveal */
+@keyframes guessPop {
+  0% {
+    transform: scale(0.95);
+    opacity: 0;
+  }
+  70% {
+    transform: scale(1.02);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.animate-guess-pop {
+  animation: guessPop 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Shimmer animation for visualizer playhead */
+@keyframes playheadShimmer {
+  0% {
+    box-shadow: 0 0 8px #ff9933, 0 0 16px rgba(255, 153, 51, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 14px #ff9933, 0 0 24px rgba(255, 153, 51, 0.8);
+  }
+  100% {
+    box-shadow: 0 0 8px #ff9933, 0 0 16px rgba(255, 153, 51, 0.4);
+  }
+}
+
+.animate-playhead {
+  animation: playheadShimmer 1.5s infinite ease-in-out;
 }
