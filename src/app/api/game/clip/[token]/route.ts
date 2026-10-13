@@ -57,7 +57,7 @@ export async function GET(
 
     // 3. Fetch session from server state
     const engine = getGameEngine();
-    const session = engine.getSessionById(sessionId);
+    const session = await engine.getSessionById(sessionId);
     if (!session) {
       return NextResponse.json(
         { error: 'Game session not found.' },

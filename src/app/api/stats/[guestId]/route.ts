@@ -33,7 +33,7 @@ export async function GET(
     }
 
     const engine = getGameEngine();
-    const stats = engine.getPlayerStats(validGuestId);
+    const stats = await engine.getPlayerStats(validGuestId);
 
     return NextResponse.json(stats, {
       status: 200,

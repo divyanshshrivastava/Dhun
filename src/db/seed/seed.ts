@@ -3,7 +3,7 @@
 
 import fs from 'fs';
 import path from 'path';
-import { db } from '../index';
+import { getDb } from '../index';
 import { musicalWorks, songs } from '../schema';
 import { sql } from 'drizzle-orm';
 
@@ -26,6 +26,7 @@ interface SeedCatalogData {
 
 export async function runDatabaseSeed() {
   console.log('Bhai starting seed script for Dhun...');
+  const db = await getDb();
   const jsonPath = path.join(__dirname, 'songs.json');
 
   if (!fs.existsSync(jsonPath)) {
