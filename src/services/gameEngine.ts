@@ -99,12 +99,30 @@ export interface SubmitGuessResponse {
   shareGrid?: string;
 }
 
+export interface PlayerStats {
+  guestId: string;
+  gamesPlayed: number;
+  gamesWon: number;
+  winPercentage: number;
+  currentStreak: number;
+  maxStreak: number;
+  guessDistribution: {
+    1: number;
+    2: number;
+    3: number;
+    4: number;
+    5: number;
+    6: number;
+  };
+}
+
 export const CLIP_DURATIONS_MS = [100, 500, 1500, 4000, 8000, 15000];
 
 // In-memory session store supporting fast concurrency and automated tests
 export class GameEngine {
   private sessions: Map<string, GameSessionState> = new Map();
   private guestDailyIndex: Map<string, string> = new Map(); // `${guestId}:${challengeDate}` -> sessionId
+  private playerStats: Map<string, PlayerStats> = new Map();
   private catalog: CatalogSongItem[];
 
   constructor(customCatalog?: CatalogSongItem[]) {
@@ -322,10 +340,12 @@ export class GameEngine {
       session.status = 'WON';
       session.completedAt = Date.now();
       answerPayload = this.buildAnswerPayload(solutionTrack);
+      this.recordGameCompletion(session);
     } else if (session.attemptsUsed >= session.maxAttempts) {
       session.status = 'LOST';
       session.completedAt = Date.now();
       answerPayload = this.buildAnswerPayload(solutionTrack);
+      this.recordGameCompletion(session);
     } else {
       // Game continues: unlock next longer clip
       const nextAttemptIndex = session.attemptsUsed;
@@ -372,6 +392,7 @@ export class GameEngine {
 
       session.status = 'LOST';
       session.completedAt = Date.now();
+      this.recordGameCompletion(session);
 
       const solutionTrack = this.catalog.find(s => s.id === session.songId)!;
       return {
@@ -388,6 +409,54 @@ export class GameEngine {
         shareGrid: this.generateShareGrid(session),
       };
     });
+  }
+
+  // Records game outcome into player stats
+  private recordGameCompletion(session: GameSessionState): void {
+    const guestId = session.guestId;
+    let stats = this.playerStats.get(guestId);
+    if (!stats) {
+      stats = {
+        guestId,
+        gamesPlayed: 0,
+        gamesWon: 0,
+        winPercentage: 0,
+        currentStreak: 0,
+        maxStreak: 0,
+        guessDistribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0 },
+      };
+      this.playerStats.set(guestId, stats);
+    }
+
+    stats.gamesPlayed += 1;
+    if (session.status === 'WON') {
+      stats.gamesWon += 1;
+      stats.currentStreak += 1;
+      if (stats.currentStreak > stats.maxStreak) {
+        stats.maxStreak = stats.currentStreak;
+      }
+      const attempts = Math.min(6, Math.max(1, session.attemptsUsed)) as 1 | 2 | 3 | 4 | 5 | 6;
+      stats.guessDistribution[attempts] = (stats.guessDistribution[attempts] || 0) + 1;
+    } else {
+      stats.currentStreak = 0;
+    }
+
+    stats.winPercentage = Math.round((stats.gamesWon / stats.gamesPlayed) * 100);
+  }
+
+  // Returns player stats for profile, streaks, and guess distribution modal
+  getPlayerStats(guestId: string): PlayerStats {
+    const existing = this.playerStats.get(guestId);
+    if (existing) return existing;
+    return {
+      guestId,
+      gamesPlayed: 0,
+      gamesWon: 0,
+      winPercentage: 0,
+      currentStreak: 0,
+      maxStreak: 0,
+      guessDistribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0 },
+    };
   }
 
   // Look up raw session state by ID
