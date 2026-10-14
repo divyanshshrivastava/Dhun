@@ -45,12 +45,15 @@ export interface CutClipResult {
   storageKey: string;
   fileSizeBytes: number;
   buffer: Buffer;
+  startOffsetSeconds?: number;
 }
 
 export interface SlicingOptions {
   songId: string;
   serverSecret?: string;
   outputDirectory?: string;
+  startOffsetSeconds?: number;
+  autoTrimSilence?: boolean;
 }
 
 // Generates an unguessable opaque filename so users cannot inspect network requests
@@ -76,6 +79,41 @@ export class AudioCutterService {
     this.tempDir = customTempDir || path.join(process.cwd(), 'scratch', 'ffmpeg_tmp');
     if (!fs.existsSync(this.tempDir)) {
       fs.mkdirSync(this.tempDir, { recursive: true });
+    }
+  }
+
+  // Detects leading silence (dB threshold) at the beginning of an audio file
+  async detectLeadingSilence(audioPath: string, thresholdDb = -45, minDuration = 0.3): Promise<number> {
+    try {
+      const args = [
+        '-y',
+        '-i', audioPath,
+        '-af', `silencedetect=noise=${thresholdDb}dB:d=${minDuration}`,
+        '-f', 'null',
+        '-',
+      ];
+      let output = '';
+      try {
+        const res = await execFileAsync(this.ffmpegPath, args);
+        output = (res.stderr || res.stdout || '').toString();
+      } catch (err: unknown) {
+        const stderr = (err as { stderr?: string }).stderr;
+        output = stderr ? stderr.toString() : '';
+      }
+
+      // Check if silence starts at or near 0:00 (<= 0.15s)
+      const startMatch = output.match(/silence_start:\s*([0-9.]+)/);
+      const endMatch = output.match(/silence_end:\s*([0-9.]+)/);
+
+      if (startMatch && parseFloat(startMatch[1]) <= 0.15 && endMatch) {
+        const silenceEnd = parseFloat(endMatch[1]);
+        if (silenceEnd >= minDuration) {
+          return silenceEnd;
+        }
+      }
+      return 0;
+    } catch {
+      return 0;
     }
   }
 
@@ -152,6 +190,18 @@ export class AudioCutterService {
         await execFileAsync(this.ffmpegPath, fallbackArgs);
       }
 
+      // Determine cue start offset:
+      // 1. Explicit manual startOffsetSeconds from options (e.g. skip intro dialogues/monologues)
+      // 2. Or auto-detect leading dead silence if autoTrimSilence is enabled
+      let effectiveOffset = Math.max(0, options.startOffsetSeconds || 0);
+
+      if (effectiveOffset === 0 && options.autoTrimSilence) {
+        const detectedSilence = await this.detectLeadingSilence(tempNormalizedMaster);
+        if (detectedSilence > 0) {
+          effectiveOffset = detectedSilence;
+        }
+      }
+
       const generatedSlices: CutClipResult[] = [];
 
       // 3. Cut each of the 6 cumulative attempts from the normalized master
@@ -166,7 +216,7 @@ export class AudioCutterService {
 
         const sliceArgs: string[] = [
           '-y',
-          '-ss', '00:00:00.000',
+          '-ss', effectiveOffset.toFixed(3),
           '-t', durationSeconds,
           '-i', tempNormalizedMaster,
           '-map_metadata', '-1', // Strip ID3 metadata
@@ -207,6 +257,7 @@ export class AudioCutterService {
           storageKey,
           fileSizeBytes: sliceBuffer.byteLength,
           buffer: sliceBuffer,
+          startOffsetSeconds: effectiveOffset,
         });
       }
 

@@ -81,6 +81,7 @@ CREATE TABLE "songs" (
 	"spotify_url" varchar(500),
 	"youtube_url" varchar(500),
 	"active" boolean DEFAULT true NOT NULL,
+	"clip_start_seconds" real DEFAULT 0 NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );

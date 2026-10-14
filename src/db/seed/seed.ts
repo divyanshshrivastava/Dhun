@@ -68,6 +68,7 @@ export async function runDatabaseSeed() {
         difficulty: s.difficulty,
         audio_source_type: 'local_upload',
         active: true,
+        clip_start_seconds: (s as unknown as { clip_start_seconds?: number }).clip_start_seconds ?? 0,
       })
       .onConflictDoNothing();
   }

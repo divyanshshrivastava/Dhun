@@ -54,4 +54,20 @@ describe('AudioCutterService - Master loudness normalization & slice pipeline', 
     // Attempt 2 (1500ms) should be larger than attempt 1 (500ms)
     expect(slices[2].fileSizeBytes).toBeGreaterThan(slices[1].fileSizeBytes);
   }, 30000); // 30s timeout for ffmpeg loudness analysis & cutting
+
+  it('slices a master track starting from a custom cue offset (startOffsetSeconds)', async () => {
+    const toneProvider = new SyntheticToneProvider();
+    const testAudio = await toneProvider.fetchTrack({ title: 'Test Cue Audio Cutter' });
+
+    const cutter = new AudioCutterService();
+    const slices = await cutter.sliceTrack(testAudio.audioBuffer, 'wav', {
+      songId: 'unit-test-cue-song-1',
+      startOffsetSeconds: 4.5,
+    });
+
+    expect(slices).toHaveLength(6);
+    expect(slices[0].startOffsetSeconds).toBe(4.5);
+    expect(slices[0].fileSizeBytes).toBeGreaterThan(0);
+    expect(slices[5].fileSizeBytes).toBeGreaterThan(0);
+  }, 30000);
 });

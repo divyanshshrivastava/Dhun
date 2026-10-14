@@ -21,6 +21,7 @@ interface SongCatalogItem {
   artists: string[];
   movie_or_album?: string;
   language: string;
+  clip_start_seconds?: number;
 }
 
 export function validateIngestPolicy(providerName: string, storageName: string, allowSyntheticRemote: boolean): void {
@@ -131,9 +132,19 @@ async function runCliIngestion() {
         ext = 'flac';
       }
 
+      const offsetFlagIdx = args.indexOf('--offset') !== -1 ? args.indexOf('--offset') : args.indexOf('--cue');
+      const cliOffset = offsetFlagIdx !== -1 && args[offsetFlagIdx + 1] ? parseFloat(args[offsetFlagIdx + 1]) : undefined;
+      const startOffset = cliOffset ?? track.clip_start_seconds ?? 0;
+
+      if (startOffset > 0) {
+        console.log(`  Cue point: slicing from ${startOffset.toFixed(2)}s offset (skipping intro silence/dialogue)`);
+      }
+
       const slicedClips = await cutter.sliceTrack(sourceResult.audioBuffer, ext, {
         songId: track.id,
         outputDirectory: outputStorageDir,
+        startOffsetSeconds: startOffset,
+        autoTrimSilence: true,
       });
 
       // Save clips into active ClipStorage (R2, Supabase, or Local Disk)
