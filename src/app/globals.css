@@ -1,108 +1,118 @@
 @import "tailwindcss";
 
-:root {
-  --bg-primary: #080c14;
-  --bg-secondary: #0f172a;
-  --bg-card: rgba(15, 23, 42, 0.75);
-  --bg-card-hover: rgba(30, 41, 59, 0.75);
-  --border-subtle: rgba(255, 255, 255, 0.08);
-  --border-active: rgba(255, 153, 51, 0.5);
-  
-  --saffron: #ff9933;
-  --saffron-glow: rgba(255, 153, 51, 0.25);
-  --emerald: #10b981;
-  --emerald-glow: rgba(16, 185, 129, 0.25);
-  --crimson: #ef4444;
-  --crimson-glow: rgba(239, 68, 68, 0.25);
-  --gold: #f59e0b;
-  --gold-glow: rgba(245, 158, 11, 0.25);
+@variant dark (&:where(.dark, .dark *));
 
-  --text-main: #f8fafc;
-  --text-muted: #94a3b8;
-  --text-dim: #64748b;
+@theme {
+  --font-sans: var(--font-dm-sans), "DM Sans", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-brand: var(--font-space-grotesk), "Space Grotesk", sans-serif;
+  --font-mono: var(--font-geist-mono), monospace;
+}
+
+:root {
+  --font-sans: var(--font-dm-sans), "DM Sans", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-brand: var(--font-space-grotesk), "Space Grotesk", sans-serif;
+  --font-mono: var(--font-geist-mono), monospace;
+
+  /* Light Theme (Clean Minimal White & Lime-Gold) */
+  --bg-page: #ffffff;
+  --bg-surface: #ffffff;
+  --bg-surface-subtle: #f7f8fa;
+  --bg-surface-card: #ffffff;
+  
+  --border-subtle: #eef0f4;
+  --border-default: #e2e5eb;
+  --border-strong: #cdd2dc;
+
+  --text-primary: #121418;
+  --text-secondary: #5a6070;
+  --text-tertiary: #9299a9;
+
+  /* Signature Dhun Lime-Gold Accent */
+  --accent-lime: #c5e31e;
+  --accent-lime-hover: #b2cf13;
+  --accent-lime-text: #111215;
+  --accent-lime-subtle: #f6fae1;
+
+  --success-bg: #ecfdf5;
+  --success-border: #86efac;
+  --success-text: #166534;
+  --success-solid: #22c55e;
+
+  --error-bg: #fef2f2;
+  --error-border: #fca5a5;
+  --error-text: #991b1b;
+  --error-solid: #ef4444;
+
+  --card-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.02);
+}
+
+.dark {
+  /* Dark Theme (Matte Carbon Black & Vibrant Lime-Gold from screenshot) */
+  --bg-page: #0f1013;
+  --bg-surface: #15171c;
+  --bg-surface-subtle: #1a1d24;
+  --bg-surface-card: #14161b;
+
+  --border-subtle: #1f222b;
+  --border-default: #2a2e3b;
+  --border-strong: #3b4152;
+
+  --text-primary: #f5f6f8;
+  --text-secondary: #9ea5b5;
+  --text-tertiary: #676e80;
+
+  /* Signature Dhun Lime-Gold Accent */
+  --accent-lime: #d6f830;
+  --accent-lime-hover: #c4e622;
+  --accent-lime-text: #0d0e11;
+  --accent-lime-subtle: #24290d;
+
+  --success-bg: #0d281e;
+  --success-border: #166534;
+  --success-text: #86efac;
+  --success-solid: #22c55e;
+
+  --error-bg: #2d1518;
+  --error-border: #7f1d1d;
+  --error-text: #fca5a5;
+  --error-solid: #ef4444;
+
+  --card-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
 }
 
 body {
-  background-color: var(--bg-primary);
-  color: var(--text-main);
-  font-family: var(--font-geist-sans), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans Devanagari", sans-serif;
+  background-color: var(--bg-page);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
   min-height: 100dvh;
   margin: 0;
   padding: 0;
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  transition: background-color 0.15s ease, color 0.15s ease;
 }
 
-/* Glassmorphism panel */
-.dhun-glass {
-  background: rgba(15, 23, 42, 0.7);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid var(--border-subtle);
-  border-radius: 1rem;
+/* Brand Typeface (Space Grotesk 700 with sans-serif fallback) */
+.brand-type {
+  font-family: var(--font-space-grotesk), "Space Grotesk", sans-serif;
+  font-weight: 700;
 }
 
-.dhun-glass-glow {
-  background: rgba(15, 23, 42, 0.85);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid var(--border-active);
-  box-shadow: 0 0 25px var(--saffron-glow);
+/* Tactile Push-Button Feel */
+.btn-tactile {
+  transition: transform 0.08s ease, filter 0.15s ease, background-color 0.15s ease;
+  user-select: none;
 }
-
-/* Smooth custom scrollbars for dropdowns and lists */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-
-::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.2);
-}
-
-::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.15);
-  border-radius: 3px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.3);
-}
-
-/* Subtle audio wave animation */
-@keyframes audioPulse {
-  0%, 100% {
-    transform: scaleY(0.4);
-    opacity: 0.6;
-  }
-  50% {
-    transform: scaleY(1);
-    opacity: 1;
-  }
-}
-
-.animate-audio-bar-1 {
-  animation: audioPulse 0.9s ease-in-out infinite alternate;
-}
-.animate-audio-bar-2 {
-  animation: audioPulse 1.1s ease-in-out 0.2s infinite alternate;
-}
-.animate-audio-bar-3 {
-  animation: audioPulse 0.8s ease-in-out 0.4s infinite alternate;
-}
-.animate-audio-bar-4 {
-  animation: audioPulse 1.2s ease-in-out 0.1s infinite alternate;
+.btn-tactile:active:not(:disabled) {
+  transform: translateY(1px) scale(0.98);
 }
 
 /* Pop animation for guess reveal */
 @keyframes guessPop {
   0% {
-    transform: scale(0.95);
+    transform: scale(0.97);
     opacity: 0;
-  }
-  70% {
-    transform: scale(1.02);
   }
   100% {
     transform: scale(1);
@@ -111,22 +121,19 @@ body {
 }
 
 .animate-guess-pop {
-  animation: guessPop 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: guessPop 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-/* Shimmer animation for visualizer playhead */
-@keyframes playheadShimmer {
-  0% {
-    box-shadow: 0 0 8px #ff9933, 0 0 16px rgba(255, 153, 51, 0.4);
+/* Subtle Waveform Audio Bar Pulse */
+@keyframes wavePulse {
+  0%, 100% {
+    transform: scaleY(0.4);
   }
   50% {
-    box-shadow: 0 0 14px #ff9933, 0 0 24px rgba(255, 153, 51, 0.8);
-  }
-  100% {
-    box-shadow: 0 0 8px #ff9933, 0 0 16px rgba(255, 153, 51, 0.4);
+    transform: scaleY(1);
   }
 }
 
-.animate-playhead {
-  animation: playheadShimmer 1.5s infinite ease-in-out;
+.animate-wave-bar {
+  animation: wavePulse 0.8s ease-in-out infinite alternate;
 }

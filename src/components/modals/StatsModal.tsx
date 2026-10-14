@@ -1,6 +1,7 @@
 "use client";
 
-import React from "react";
+import React, { useEffect } from "react";
+import { X, Trophy, Flame } from "lucide-react";
 
 export interface PlayerStatsData {
   gamesPlayed: number;
@@ -17,6 +18,18 @@ export interface StatsModalProps {
 }
 
 export const StatsModal: React.FC<StatsModalProps> = ({ isOpen, stats, onClose }) => {
+  // Close on Escape key press
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   const winRate =
@@ -43,59 +56,64 @@ export const StatsModal: React.FC<StatsModalProps> = ({ isOpen, stats, onClose }
       role="dialog"
       aria-modal="true"
       aria-labelledby="stats-modal-title"
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-guess-pop"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 dark:bg-black/75 backdrop-blur-sm animate-guess-pop"
     >
-      <div className="relative w-full max-w-md bg-slate-900 border border-slate-700/80 rounded-2xl shadow-2xl p-6 flex flex-col items-center gap-6">
+      <div className="relative w-full max-w-md bg-white dark:bg-neutral-850 border border-neutral-200 dark:border-neutral-750 rounded-2xl shadow-2xl p-6 flex flex-col items-center gap-5">
         {/* Close icon */}
         <button
           type="button"
           onClick={onClose}
           aria-label="Close statistics modal"
-          className="absolute top-4 right-4 text-slate-400 hover:text-white transition-colors p-1 cursor-pointer"
+          className="absolute top-4 right-4 text-neutral-400 hover:text-neutral-700 dark:hover:text-white transition-colors p-1 cursor-pointer"
         >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-          </svg>
+          <X className="w-5 h-5" />
         </button>
 
-        <h2 id="stats-modal-title" className="text-xl font-bold text-white tracking-tight">
-          Player Statistics
+        <h2 id="stats-modal-title" className="text-xl font-bold text-neutral-900 dark:text-white tracking-tight flex items-center gap-2">
+          <Trophy className="w-5 h-5 text-amber-500" />
+          <span>Player Statistics</span>
         </h2>
 
         {/* 4 Stats Cards */}
         <div className="grid grid-cols-4 gap-2 w-full text-center">
-          <div className="bg-slate-800/80 border border-slate-700/80 rounded-xl p-2.5 flex flex-col items-center">
-            <span className="text-xl font-bold font-mono text-white">
+          <div className="bg-neutral-50 dark:bg-neutral-800/80 border border-neutral-200 dark:border-neutral-700 rounded-xl p-2.5 flex flex-col items-center">
+            <span className="text-xl font-bold font-mono text-neutral-900 dark:text-white">
               {stats.gamesPlayed}
             </span>
-            <span className="text-[11px] text-slate-400 mt-1">Played</span>
+            <span className="text-[11px] font-medium text-neutral-500 dark:text-neutral-400 mt-0.5">Played</span>
           </div>
 
-          <div className="bg-slate-800/80 border border-slate-700/80 rounded-xl p-2.5 flex flex-col items-center">
-            <span className="text-xl font-bold font-mono text-white">
+          <div className="bg-neutral-50 dark:bg-neutral-800/80 border border-neutral-200 dark:border-neutral-700 rounded-xl p-2.5 flex flex-col items-center">
+            <span className="text-xl font-bold font-mono text-neutral-900 dark:text-white">
               {winRate}%
             </span>
-            <span className="text-[11px] text-slate-400 mt-1">Win %</span>
+            <span className="text-[11px] font-medium text-neutral-500 dark:text-neutral-400 mt-0.5">Win %</span>
           </div>
 
-          <div className="bg-slate-800/80 border border-slate-700/80 rounded-xl p-2.5 flex flex-col items-center">
-            <span className="text-xl font-bold font-mono text-amber-400">
-              {stats.currentStreak}
-            </span>
-            <span className="text-[11px] text-slate-400 mt-1">Current</span>
+          <div className="bg-neutral-50 dark:bg-neutral-800/80 border border-neutral-200 dark:border-neutral-700 rounded-xl p-2.5 flex flex-col items-center">
+            <div className="flex items-center gap-0.5 text-amber-600 dark:text-amber-400">
+              <Flame className="w-3.5 h-3.5 fill-current" />
+              <span className="text-xl font-bold font-mono">
+                {stats.currentStreak}
+              </span>
+            </div>
+            <span className="text-[11px] font-medium text-neutral-500 dark:text-neutral-400 mt-0.5">Current</span>
           </div>
 
-          <div className="bg-slate-800/80 border border-slate-700/80 rounded-xl p-2.5 flex flex-col items-center">
-            <span className="text-xl font-bold font-mono text-amber-400">
+          <div className="bg-neutral-50 dark:bg-neutral-800/80 border border-neutral-200 dark:border-neutral-700 rounded-xl p-2.5 flex flex-col items-center">
+            <span className="text-xl font-bold font-mono text-amber-600 dark:text-amber-400">
               {stats.maxStreak}
             </span>
-            <span className="text-[11px] text-slate-400 mt-1">Max</span>
+            <span className="text-[11px] font-medium text-neutral-500 dark:text-neutral-400 mt-0.5">Max</span>
           </div>
         </div>
 
         {/* Guess Distribution Horizontal Bars */}
         <div className="w-full flex flex-col gap-2">
-          <h3 className="text-xs uppercase tracking-wider font-mono text-slate-400 font-semibold text-left">
+          <h3 className="text-xs uppercase tracking-wider font-semibold text-neutral-500 dark:text-neutral-400 text-left">
             Guess Distribution
           </h3>
 
@@ -106,12 +124,14 @@ export const StatsModal: React.FC<StatsModalProps> = ({ isOpen, stats, onClose }
 
               return (
                 <div key={num} className="flex items-center gap-2 text-xs font-mono">
-                  <span className="w-3 text-right text-slate-400">{num}</span>
-                  <div className="flex-1 bg-slate-800/50 rounded h-5 overflow-hidden flex items-center">
+                  <span className="w-3 text-right text-neutral-500 dark:text-neutral-400 font-bold">{num}</span>
+                  <div className="flex-1 bg-neutral-100 dark:bg-neutral-800 rounded-lg h-5 overflow-hidden flex items-center">
                     <div
                       style={{ width: `${barWidthPercent}%` }}
-                      className={`h-full flex items-center justify-end px-2 text-[11px] font-bold text-slate-950 transition-all duration-300 ${
-                        count > 0 ? "bg-amber-400" : "bg-slate-700 text-slate-400"
+                      className={`h-full flex items-center justify-end px-2 text-[11px] font-bold transition-all duration-300 ${
+                        count > 0
+                          ? "bg-amber-500 text-white dark:text-neutral-950"
+                          : "bg-neutral-200 dark:bg-neutral-700 text-neutral-400 dark:text-neutral-500"
                       }`}
                     >
                       {count}
@@ -126,7 +146,7 @@ export const StatsModal: React.FC<StatsModalProps> = ({ isOpen, stats, onClose }
         <button
           type="button"
           onClick={onClose}
-          className="w-full h-11 bg-slate-800 hover:bg-slate-700 text-white font-semibold rounded-xl transition-colors cursor-pointer"
+          className="btn-tactile w-full h-10 bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 text-neutral-900 dark:text-neutral-100 font-semibold rounded-xl transition-colors cursor-pointer"
         >
           Close
         </button>

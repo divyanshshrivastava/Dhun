@@ -42,10 +42,10 @@ export const VisualizerBar: React.FC<VisualizerBarProps> = ({
   );
 
   return (
-    <div className="w-full flex flex-col gap-2 select-none" aria-label="Audio timeline visualizer">
+    <div className="w-full flex flex-col gap-1.5 select-none" aria-label="Audio timeline visualizer">
       {/* 6-segment cumulative timeline bar */}
       <div
-        className="relative w-full h-8 bg-slate-900/90 rounded-lg overflow-hidden border border-slate-700/60 shadow-inner flex"
+        className="relative w-full h-7 bg-neutral-100 dark:bg-neutral-800/80 rounded-xl overflow-hidden border border-neutral-200 dark:border-neutral-700/60 shadow-sm flex"
         role="progressbar"
         aria-label="Song snippet timeline"
         aria-valuenow={Math.round(currentTime * 10) / 10}
@@ -57,28 +57,27 @@ export const VisualizerBar: React.FC<VisualizerBarProps> = ({
           const isUnlocked = idx <= effectiveAttempt;
           const isCurrentActive = idx === effectiveAttempt && !isGameOver;
 
-          // Segment background color
-          let bgClass = "bg-slate-800/50";
+          // Clean, game-like segment styling
+          let bgClass = "bg-neutral-100 dark:bg-neutral-800/40";
           if (isWon) {
-            bgClass = isUnlocked ? "bg-emerald-600/30" : "bg-slate-850/50";
+            bgClass = isUnlocked
+              ? "bg-emerald-100/70 dark:bg-emerald-900/30"
+              : "bg-neutral-100 dark:bg-neutral-850/40";
           } else if (isUnlocked) {
             bgClass = isCurrentActive
-              ? "bg-amber-500/25 border-b-2 border-amber-400"
-              : "bg-slate-700/40";
+              ? "bg-amber-100/80 dark:bg-amber-500/20"
+              : "bg-neutral-200/70 dark:bg-neutral-700/40";
           }
 
           return (
             <div
               key={idx}
               style={{ width: `${widthPercent}%` }}
-              className={`relative h-full border-r border-slate-900/80 transition-colors duration-300 flex items-center justify-center ${bgClass}`}
+              className={`relative h-full border-r border-neutral-200/90 dark:border-neutral-700/60 transition-colors duration-200 flex items-center justify-center ${bgClass}`}
               title={`Attempt ${idx + 1}: up to ${CUMULATIVE_DURATIONS[idx]}s`}
             >
-              {/* Locked lock indicator for later segments */}
               {!isUnlocked && (
-                <span className="text-[10px] text-slate-500 font-mono tracking-tighter opacity-60">
-                  🔒
-                </span>
+                <span className="w-1.5 h-1.5 rounded-full bg-neutral-300 dark:bg-neutral-600" />
               )}
             </div>
           );
@@ -88,39 +87,39 @@ export const VisualizerBar: React.FC<VisualizerBarProps> = ({
         <div
           className={`absolute top-0 bottom-0 left-0 transition-all duration-75 pointer-events-none ${
             isWon
-              ? "bg-emerald-500/40 shadow-[0_0_12px_rgba(16,185,129,0.5)]"
-              : "bg-gradient-to-r from-amber-600/30 to-amber-500/60 shadow-[0_0_12px_rgba(245,158,11,0.5)]"
+              ? "bg-emerald-500/30 dark:bg-emerald-500/40"
+              : "bg-amber-500/35 dark:bg-amber-500/40"
           }`}
           style={{ width: `${progressPercent}%` }}
         />
 
-        {/* Glowing vertical playhead needle */}
+        {/* Crisp vertical playhead needle */}
         {isPlaying && (
           <div
-            className="absolute top-0 bottom-0 w-1 bg-amber-300 rounded-full shadow-[0_0_8px_#f59e0b] pointer-events-none transition-all duration-75"
+            className="absolute top-0 bottom-0 w-1 bg-amber-600 dark:bg-amber-400 rounded-full pointer-events-none transition-all duration-75 shadow-sm"
             style={{ left: `calc(${progressPercent}% - 2px)` }}
           />
         )}
       </div>
 
       {/* Segment time marker stamps below the bar */}
-      <div className="relative w-full h-4 text-[11px] font-mono text-slate-400">
-        <div className="flex justify-between w-full">
-          <span>0s</span>
-          {CUMULATIVE_DURATIONS.map((dur, i) => {
-            const isReached = i <= effectiveAttempt;
-            return (
-              <span
-                key={i}
-                className={`transition-colors ${
-                  isReached ? "text-amber-400 font-medium" : "text-slate-600"
-                }`}
-              >
-                {dur}s
-              </span>
-            );
-          })}
-        </div>
+      <div className="flex justify-between w-full px-0.5 text-[11px] font-medium text-neutral-400 dark:text-neutral-500">
+        <span>0s</span>
+        {CUMULATIVE_DURATIONS.map((dur, i) => {
+          const isReached = i <= effectiveAttempt;
+          return (
+            <span
+              key={i}
+              className={`transition-colors ${
+                isReached
+                  ? "text-amber-600 dark:text-amber-400 font-semibold"
+                  : "text-neutral-400 dark:text-neutral-600"
+              }`}
+            >
+              {dur}s
+            </span>
+          );
+        })}
       </div>
     </div>
   );

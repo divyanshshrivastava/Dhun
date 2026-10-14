@@ -2,6 +2,7 @@
 
 import React from "react";
 import { CUMULATIVE_DURATIONS } from "./VisualizerBar";
+import { Play, Pause, SkipForward, AlertCircle, RefreshCw } from "lucide-react";
 
 export interface AudioControlsProps {
   isPlaying: boolean;
@@ -41,39 +42,40 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
       : null;
 
   return (
-    <div className="w-full flex flex-col items-center gap-4">
-      {/* Error / Slow Network / Token Refresh Banner */}
+    <div className="w-full flex flex-col items-center gap-3">
+      {/* Error / Network Notification */}
       {error && (
         <div
           role="alert"
-          className="w-full p-3 bg-red-950/70 border border-red-500/60 rounded-xl flex items-center justify-between gap-3 text-red-200 text-sm shadow-lg animate-guess-pop"
+          className="w-full p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/60 rounded-xl flex items-center justify-between gap-3 text-red-800 dark:text-red-200 text-xs sm:text-sm animate-guess-pop"
         >
           <div className="flex items-center gap-2">
-            <span className="text-red-400 text-lg">⚠️</span>
-            <span className="text-xs sm:text-sm font-medium">{error}</span>
+            <AlertCircle className="w-4 h-4 text-red-600 dark:text-red-400 flex-shrink-0" />
+            <span className="font-medium">{error}</span>
           </div>
           <button
             type="button"
             onClick={onRefreshAudio}
-            className="px-3 py-1 bg-red-800/80 hover:bg-red-700 text-white rounded-lg text-xs font-semibold uppercase tracking-wider transition-colors flex-shrink-0 cursor-pointer"
+            className="px-2.5 py-1 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-semibold transition-colors flex-shrink-0 cursor-pointer flex items-center gap-1"
           >
-            Retry Audio
+            <RefreshCw className="w-3 h-3" />
+            <span>Retry</span>
           </button>
         </div>
       )}
 
       {/* Main Playback Bar with Time Display & Play/Pause */}
-      <div className="w-full flex items-center justify-between px-2">
+      <div className="w-full flex items-center justify-between px-1">
         {/* Current Time / Duration Stamp */}
-        <div className="font-mono text-sm text-slate-300 bg-slate-900/60 px-3 py-1.5 rounded-lg border border-slate-800">
-          <span className="text-amber-400 font-semibold">
+        <div className="text-xs font-semibold text-neutral-600 dark:text-neutral-300 bg-neutral-100 dark:bg-neutral-800/80 px-3 py-1.5 rounded-lg border border-neutral-200 dark:border-neutral-700/60">
+          <span className="text-amber-600 dark:text-amber-400">
             {currentTime.toFixed(1)}s
           </span>
-          <span className="text-slate-500"> / </span>
+          <span className="text-neutral-400 dark:text-neutral-500"> / </span>
           <span>{totalUnlockedDuration.toFixed(1)}s</span>
         </div>
 
-        {/* Big Circular Play / Pause Button */}
+        {/* Big Tactile Circular Play / Pause Button */}
         <button
           type="button"
           onClick={isPlaying ? onPause : onPlay}
@@ -85,56 +87,20 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
               ? "Pause audio snippet"
               : "Play audio snippet"
           }
-          className={`relative w-16 h-16 rounded-full flex items-center justify-center transition-all duration-200 shadow-xl cursor-pointer active:scale-95 ${
+          className={`btn-tactile relative w-14 h-14 rounded-full flex items-center justify-center transition-all cursor-pointer shadow-md ${
             isLoading
-              ? "bg-slate-800 text-slate-500 cursor-wait"
+              ? "bg-neutral-200 dark:bg-neutral-800 text-neutral-400 cursor-wait"
               : isPlaying
-              ? "bg-amber-500 text-slate-950 shadow-[0_0_25px_rgba(245,158,11,0.6)] scale-105"
-              : "bg-gradient-to-tr from-amber-500 to-amber-400 text-slate-950 hover:shadow-[0_0_20px_rgba(245,158,11,0.4)] hover:scale-105"
+              ? "bg-amber-500 text-white dark:text-neutral-950 hover:bg-amber-600 dark:hover:bg-amber-400 scale-105 shadow-amber-500/25 shadow-lg"
+              : "bg-amber-500 hover:bg-amber-600 dark:bg-amber-500 dark:hover:bg-amber-400 text-white dark:text-neutral-950 hover:scale-105 shadow-amber-500/20 shadow-md"
           }`}
         >
           {isLoading ? (
-            <svg
-              className="animate-spin h-7 w-7 text-amber-400"
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-              aria-hidden="true"
-            >
-              <circle
-                className="opacity-25"
-                cx="12"
-                cy="12"
-                r="10"
-                stroke="currentColor"
-                strokeWidth="4"
-              />
-              <path
-                className="opacity-75"
-                fill="currentColor"
-                d="M4 12a8 8 0 018-8v8H4z"
-              />
-            </svg>
+            <RefreshCw className="animate-spin w-6 h-6 text-neutral-500 dark:text-neutral-400" />
           ) : isPlaying ? (
-            // Pause Icon
-            <svg
-              className="w-7 h-7"
-              fill="currentColor"
-              viewBox="0 0 24 24"
-              aria-hidden="true"
-            >
-              <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
-            </svg>
+            <Pause className="w-6 h-6 fill-current" />
           ) : (
-            // Play Icon (slightly offset to visual center)
-            <svg
-              className="w-7 h-7 ml-1"
-              fill="currentColor"
-              viewBox="0 0 24 24"
-              aria-hidden="true"
-            >
-              <path d="M8 5v14l11-7z" />
-            </svg>
+            <Play className="w-6 h-6 fill-current ml-0.5" />
           )}
         </button>
 
@@ -143,7 +109,7 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
           <button
             type="button"
             onClick={onGiveUp}
-            className="text-xs text-slate-500 hover:text-red-400 transition-colors px-2 py-1 cursor-pointer"
+            className="text-xs text-neutral-400 hover:text-red-500 dark:text-neutral-500 dark:hover:text-red-400 transition-colors px-2 py-1.5 cursor-pointer rounded-md font-medium"
             title="Give up and reveal the song"
           >
             Give Up?
@@ -153,21 +119,22 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
         )}
       </div>
 
-      {/* Action Buttons: Skip and status indicators */}
+      {/* Action Buttons: Skip */}
       {!isGameOver && (
-        <div className="w-full flex items-center justify-between gap-3 pt-1">
+        <div className="w-full pt-1">
           <button
             type="button"
             onClick={onSkip}
             disabled={isLoading}
-            className="w-full h-11 px-4 bg-slate-800/80 hover:bg-slate-700/80 active:bg-slate-700 text-slate-200 rounded-xl font-medium text-sm border border-slate-700 transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md disabled:opacity-50"
+            className="btn-tactile w-full h-11 px-4 bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700/80 text-neutral-800 dark:text-neutral-200 rounded-xl font-semibold text-sm border border-neutral-200 dark:border-neutral-700/80 transition-colors flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
             aria-label={`Skip to next snippet duration${
               nextDuration ? `, unlocking ${nextDuration}s` : ""
             }`}
           >
+            <SkipForward className="w-4 h-4" />
             <span>SKIP</span>
             {nextDuration && (
-              <span className="text-xs font-mono text-amber-400/90 font-normal">
+              <span className="text-xs text-neutral-500 dark:text-neutral-400 font-normal">
                 (+{nextDuration}s)
               </span>
             )}

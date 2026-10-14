@@ -1,6 +1,7 @@
 "use client";
 
-import React from "react";
+import React, { useEffect } from "react";
+import { X, HelpCircle, Music, Clock } from "lucide-react";
 
 export interface HelpModalProps {
   isOpen: boolean;
@@ -8,6 +9,18 @@ export interface HelpModalProps {
 }
 
 export const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose }) => {
+  // Close on Escape key press
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   return (
@@ -15,83 +28,77 @@ export const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose }) => {
       role="dialog"
       aria-modal="true"
       aria-labelledby="help-modal-title"
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-guess-pop"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 dark:bg-black/75 backdrop-blur-sm animate-guess-pop"
     >
-      <div className="relative w-full max-w-md bg-slate-900 border border-slate-700/80 rounded-2xl shadow-2xl p-6 flex flex-col items-center gap-5 text-left max-h-[90vh] overflow-y-auto">
+      <div className="relative w-full max-w-md bg-white dark:bg-neutral-850 border border-neutral-200 dark:border-neutral-750 rounded-2xl shadow-2xl p-6 flex flex-col items-center gap-5 text-left max-h-[90vh] overflow-y-auto">
         {/* Close icon */}
         <button
           type="button"
           onClick={onClose}
           aria-label="Close rules modal"
-          className="absolute top-4 right-4 text-slate-400 hover:text-white transition-colors p-1 cursor-pointer"
+          className="absolute top-4 right-4 text-neutral-400 hover:text-neutral-700 dark:hover:text-white transition-colors p-1 cursor-pointer"
         >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-          </svg>
+          <X className="w-5 h-5" />
         </button>
 
-        <h2 id="help-modal-title" className="text-xl font-bold text-white tracking-tight flex items-center gap-2">
-          <span>🎵</span> How to Play Dhun (धुन)
+        <h2 id="help-modal-title" className="text-xl font-bold text-neutral-900 dark:text-white tracking-tight flex items-center gap-2">
+          <HelpCircle className="w-5 h-5 text-amber-500" />
+          <span>How to Play Dhun (धुन)</span>
         </h2>
 
-        <div className="flex flex-col gap-4 text-sm text-slate-300">
+        <div className="flex flex-col gap-4 text-sm text-neutral-600 dark:text-neutral-300">
           <p>
-            Guess today&apos;s Indian song in <strong>6 attempts</strong>. Each puzzle features beloved tracks from Bollywood, Punjabi, Tamil, Telugu, and Indian Indie!
+            Guess today&apos;s song in <strong>6 attempts</strong>. Each puzzle features beloved Indian tracks from Bollywood, Punjabi, Tamil, Telugu, and Indie!
           </p>
 
           <div className="flex flex-col gap-2">
-            <h3 className="text-xs uppercase font-mono tracking-wider font-semibold text-amber-400">
-              Cumulative Snippets
+            <h3 className="text-xs uppercase font-semibold text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
+              <Clock className="w-3.5 h-3.5" />
+              <span>Audio Progression</span>
             </h3>
             <ul className="grid grid-cols-2 gap-2 text-xs font-mono">
-              <li className="bg-slate-800/80 px-2.5 py-1.5 rounded-lg border border-slate-700">
+              <li className="bg-neutral-100 dark:bg-neutral-800/80 px-2.5 py-1.5 rounded-lg border border-neutral-200 dark:border-neutral-700">
                 1st: <strong>0.1s</strong>
               </li>
-              <li className="bg-slate-800/80 px-2.5 py-1.5 rounded-lg border border-slate-700">
+              <li className="bg-neutral-100 dark:bg-neutral-800/80 px-2.5 py-1.5 rounded-lg border border-neutral-200 dark:border-neutral-700">
                 2nd: <strong>0.5s</strong>
               </li>
-              <li className="bg-slate-800/80 px-2.5 py-1.5 rounded-lg border border-slate-700">
+              <li className="bg-neutral-100 dark:bg-neutral-800/80 px-2.5 py-1.5 rounded-lg border border-neutral-200 dark:border-neutral-700">
                 3rd: <strong>1.5s</strong>
               </li>
-              <li className="bg-slate-800/80 px-2.5 py-1.5 rounded-lg border border-slate-700">
+              <li className="bg-neutral-100 dark:bg-neutral-800/80 px-2.5 py-1.5 rounded-lg border border-neutral-200 dark:border-neutral-700">
                 4th: <strong>4.0s</strong>
               </li>
-              <li className="bg-slate-800/80 px-2.5 py-1.5 rounded-lg border border-slate-700">
+              <li className="bg-neutral-100 dark:bg-neutral-800/80 px-2.5 py-1.5 rounded-lg border border-neutral-200 dark:border-neutral-700">
                 5th: <strong>8.0s</strong>
               </li>
-              <li className="bg-slate-800/80 px-2.5 py-1.5 rounded-lg border border-slate-700">
+              <li className="bg-neutral-100 dark:bg-neutral-800/80 px-2.5 py-1.5 rounded-lg border border-neutral-200 dark:border-neutral-700">
                 6th: <strong>15.0s</strong>
               </li>
             </ul>
           </div>
 
           <div className="flex flex-col gap-2">
-            <h3 className="text-xs uppercase font-mono tracking-wider font-semibold text-amber-400">
-              Hinglish &amp; Acronym Matching
+            <h3 className="text-xs uppercase font-semibold text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
+              <Music className="w-3.5 h-3.5" />
+              <span>Tips & Rules</span>
             </h3>
-            <p className="text-xs text-slate-400 leading-relaxed">
-              Type the song in Hinglish, title, movie, or singer name. You can even use movie song acronyms like <code className="text-amber-300 bg-slate-800 px-1 py-0.5 rounded">khnh</code> for <em>Kal Ho Naa Ho</em>!
-            </p>
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <h3 className="text-xs uppercase font-mono tracking-wider font-semibold text-amber-400">
-              Canonical Remake Equivalence
-            </h3>
-            <p className="text-xs text-slate-400 leading-relaxed">
-              If the song is a remake or reprise (e.g. <em>Dilbar</em> from 1999 vs 2018), both versions count as correct answers.
-            </p>
-          </div>
-
-          <div className="flex flex-col gap-1 border-t border-slate-800 pt-3 text-xs text-slate-400">
-            <span>✨ A new Dhun drops daily at <strong>00:00 IST</strong>.</span>
+            <ul className="list-disc list-inside space-y-1 text-xs text-neutral-500 dark:text-neutral-400">
+              <li>Skipped or incorrect attempts unlock more audio from the song.</li>
+              <li>Search by song title, movie name, or artist.</li>
+              <li>Remakes and originals with identical melodic compositions are credited as correct!</li>
+              <li>A new daily challenge unlocks every midnight IST (00:00).</li>
+            </ul>
           </div>
         </div>
 
         <button
           type="button"
           onClick={onClose}
-          className="w-full h-11 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-xl transition-colors cursor-pointer"
+          className="btn-tactile w-full h-10 bg-amber-500 hover:bg-amber-600 text-white dark:text-neutral-950 font-bold rounded-xl transition-colors cursor-pointer"
         >
           Got It, Let&apos;s Play!
         </button>

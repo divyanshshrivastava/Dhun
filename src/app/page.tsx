@@ -2,17 +2,37 @@
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { DhunAudioPlayer } from "../lib/audio/DhunAudioPlayer";
-import { VisualizerBar } from "../components/VisualizerBar";
+import { AudioPlayerCard } from "../components/AudioPlayerCard";
+import { CUMULATIVE_DURATIONS } from "../components/VisualizerBar";
 import { AutocompleteInput } from "../components/AutocompleteInput";
 import { GuessHistory, GuessRecord } from "../components/GuessHistory";
-import { AudioControls } from "../components/AudioControls";
 import { GameOverModal, SolutionDetails } from "../components/modals/GameOverModal";
 import { StatsModal, PlayerStatsData } from "../components/modals/StatsModal";
 import { HelpModal } from "../components/modals/HelpModal";
 import { PracticeModeSelector, PracticeFilters } from "../components/PracticeModeSelector";
 import { CatalogSongItem } from "../lib/search/catalogSearch";
+import { HelpCircle, BarChart2, Sun, Moon, Share2, ExternalLink, Clock, Headphones, Shuffle } from "lucide-react";
 
 export default function DhunPage() {
+  // Theme State
+  const [theme, setTheme] = useState<"light" | "dark">("dark");
+
+  useEffect(() => {
+    const isDark = document.documentElement.classList.contains("dark");
+    setTheme(isDark ? "dark" : "light");
+  }, []);
+
+  const toggleTheme = () => {
+    const nextTheme = theme === "dark" ? "light" : "dark";
+    setTheme(nextTheme);
+    if (nextTheme === "dark") {
+      document.documentElement.classList.add("dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+    }
+    localStorage.setItem("dhun_theme", nextTheme);
+  };
+
   // Session & Player State
   const [guestId, setGuestId] = useState<string>("");
   const [sessionId, setSessionId] = useState<string>("");
@@ -510,57 +530,179 @@ export default function DhunPage() {
     }
   };
 
-  return (
-    <div className="min-h-screen flex flex-col items-center justify-between bg-[#080c14] text-slate-100 p-4 sm:p-6 selection:bg-amber-500/30">
-      {/* Top Navigation Bar */}
-      <header className="w-full max-w-lg flex items-center justify-between pb-4 border-b border-slate-800/80">
-        <button
-          type="button"
-          onClick={() => setIsHelpOpen(true)}
-          className="w-9 h-9 rounded-full bg-slate-800/70 hover:bg-slate-700/80 flex items-center justify-center text-slate-300 hover:text-white transition-colors cursor-pointer"
-          aria-label="How to play instructions"
-        >
-          ?
-        </button>
+  const nextAttempt = attemptsUsed + 1;
+  const nextSkipDuration =
+    nextAttempt < CUMULATIVE_DURATIONS.length
+      ? CUMULATIVE_DURATIONS[nextAttempt]
+      : null;
 
-        {/* Brand Header */}
-        <div className="flex flex-col items-center">
-          <div className="flex items-center gap-2">
-            <span className="text-xl">🪕</span>
-            <h1 className="text-2xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-amber-400 via-orange-400 to-amber-200">
-              DHUN <span className="text-lg font-normal text-slate-400">धुन</span>
-            </h1>
+  const getDayNumber = (d?: string) => {
+    const base = new Date("2026-05-10").getTime();
+    const cur = d ? new Date(d).getTime() : new Date().getTime();
+    return Math.max(1, Math.floor((cur - base) / 86400000));
+  };
+
+  const getFormattedDate = (d?: string) => {
+    const dateObj = d ? new Date(d) : new Date();
+    return dateObj.toLocaleDateString("en-GB", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    });
+  };
+
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-between bg-[var(--bg-page)] text-[var(--text-primary)] px-3 py-2.5 sm:px-4 sm:py-4 transition-colors duration-150 selection:bg-[#c5e31e]/30 selection:text-neutral-900 dark:selection:text-white">
+      {/* Top Header Bar */}
+      <header className="w-full max-w-md sm:max-w-lg flex items-center justify-between pb-2.5 border-b border-neutral-100 dark:border-neutral-850">
+        {/* Left: Waveform Logo + Title */}
+        <div className="flex items-center gap-2 select-none">
+          {/* Waveform icon in lime-gold */}
+          <div className="flex items-center gap-0.5 h-4 text-[#c5e31e] dark:text-[#d6f830]">
+            <span className="w-1 h-2 rounded-full bg-current" />
+            <span className="w-1 h-3.5 rounded-full bg-current" />
+            <span className="w-1 h-4 rounded-full bg-current" />
+            <span className="w-1 h-2.5 rounded-full bg-current" />
           </div>
-          <span className="text-[11px] font-mono text-slate-500 tracking-wide">
-            DAILY INDIAN MUSIC CHALLENGE
-          </span>
+          <div className="flex items-baseline gap-1">
+            <span className="text-xl font-black tracking-tight text-neutral-900 dark:text-white">
+              dhun
+            </span>
+            <span className="text-xs font-normal text-neutral-400 dark:text-neutral-500">
+              धुन
+            </span>
+          </div>
         </div>
 
-        <button
-          type="button"
-          onClick={() => setIsStatsOpen(true)}
-          className="w-9 h-9 rounded-full bg-slate-800/70 hover:bg-slate-700/80 flex items-center justify-center text-slate-300 hover:text-white transition-colors cursor-pointer"
-          aria-label="View statistics"
-        >
-          📊
-        </button>
+        {/* Right: Actions (Stats, Help, Theme Toggle) */}
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => setIsStatsOpen(true)}
+            className="w-8 h-8 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 flex items-center justify-center text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white transition-colors cursor-pointer"
+            aria-label="View statistics"
+            title="Statistics"
+          >
+            <BarChart2 className="w-4 h-4" />
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setIsHelpOpen(true)}
+            className="w-8 h-8 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 flex items-center justify-center text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white transition-colors cursor-pointer"
+            aria-label="How to play instructions"
+            title="How to play"
+          >
+            <HelpCircle className="w-4 h-4" />
+          </button>
+
+          <button
+            type="button"
+            onClick={toggleTheme}
+            className="w-8 h-8 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 flex items-center justify-center text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white transition-colors cursor-pointer"
+            aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+            title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+          >
+            {theme === "dark" ? (
+              <Sun className="w-4 h-4 text-amber-400" />
+            ) : (
+              <Moon className="w-4 h-4 text-neutral-600" />
+            )}
+          </button>
+        </div>
       </header>
 
-      {/* Practice / Daily Mode Selector */}
-      <div className="w-full max-w-lg pt-3">
-        <PracticeModeSelector
-          currentMode={gameMode}
-          filters={practiceFilters}
-          isLoading={isLoadingAudio}
-          onSelectMode={handleSelectMode}
-          onFilterChange={handleFilterChange}
-          onNewPracticeSong={handleNewPracticeSong}
-        />
-      </div>
+      {/* Main Container */}
+      <main className="w-full max-w-md sm:max-w-lg flex flex-col items-center gap-3 py-1.5 flex-1">
+        {/* Hero Section */}
+        <div className="flex flex-col items-center text-center gap-1 select-none pt-0.5">
+          <div className="flex items-center gap-1.5 text-[10px] font-bold tracking-[0.2em] uppercase text-neutral-500 dark:text-neutral-400">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#c5e31e] dark:bg-[#d6f830]" />
+            <span>A DAILY DOSE OF INDIAN MUSIC</span>
+          </div>
 
-      {/* Main Game Interface Container */}
-      <main className="w-full max-w-lg flex-1 flex flex-col items-center justify-between py-4 gap-4">
-        {/* Attempt History List */}
+          <h1 className="brand-type text-3xl sm:text-4xl tracking-tight text-neutral-900 dark:text-white">
+            Find your{" "}
+            <span className="relative inline-block">
+              dhun.
+              <span className="absolute left-0 right-0 -bottom-1 h-[3.5px] bg-[#c5e31e] dark:bg-[#d6f830] rounded-full" />
+            </span>
+          </h1>
+
+          <p className="text-xs text-neutral-500 dark:text-neutral-400 font-medium">
+            A little intro. A lot of memories.
+          </p>
+        </div>
+
+        {/* Mode Selector Segmented Pill */}
+        <div className="flex items-center p-0.5 bg-neutral-100 dark:bg-[#15171c] border border-neutral-200 dark:border-neutral-800 rounded-xl text-xs font-semibold shadow-xs">
+          <button
+            type="button"
+            onClick={() => handleSelectMode("DAILY")}
+            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg transition-all cursor-pointer ${
+              gameMode === "DAILY"
+                ? "bg-white dark:bg-[#222631] text-neutral-950 dark:text-white shadow-xs font-bold"
+                : "text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-200 font-medium"
+            }`}
+          >
+            <span className="text-xs">♪</span>
+            <span>Daily Dhun</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleSelectMode("PRACTICE")}
+            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg transition-all cursor-pointer ${
+              gameMode === "PRACTICE"
+                ? "bg-white dark:bg-[#222631] text-neutral-950 dark:text-white shadow-xs font-bold"
+                : "text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-200 font-medium"
+            }`}
+          >
+            <span className="text-xs">🔀</span>
+            <span>Practice</span>
+          </button>
+        </div>
+
+        {/* Practice Mode Filter Panel (only visible when in PRACTICE mode) */}
+        {gameMode === "PRACTICE" && (
+          <div className="w-full">
+            <PracticeModeSelector
+              currentMode={gameMode}
+              filters={practiceFilters}
+              isLoading={isLoadingAudio}
+              onSelectMode={handleSelectMode}
+              onFilterChange={handleFilterChange}
+              onNewPracticeSong={handleNewPracticeSong}
+            />
+          </div>
+        )}
+
+        {/* Sub-header Context Row: Daily # / Date and Sound On */}
+        <div className="w-full flex items-center justify-between text-[11px] font-mono text-neutral-400 dark:text-neutral-500 px-1">
+          <span className="uppercase tracking-wider">
+            {gameMode === "DAILY"
+              ? `DAILY #${getDayNumber(challengeDate)}  /  ${getFormattedDate(challengeDate)}`
+              : "UNLIMITED PRACTICE"}
+          </span>
+          <div className="flex items-center gap-2">
+            <span className="flex items-center gap-1">
+              <Headphones className="w-3 h-3 text-[#9fba11] dark:text-[#d6f830]" />
+              <span>Sound on</span>
+            </span>
+            {status === "IN_PROGRESS" && (
+              <button
+                type="button"
+                onClick={handleGiveUp}
+                className="hover:text-red-500 dark:hover:text-red-400 cursor-pointer transition-colors text-[11px]"
+                title="Give up and reveal the song"
+              >
+                • Give up?
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* 1. Guesses On Top (Compact, no scroll) */}
         <div className="w-full">
           <GuessHistory
             guesses={guesses}
@@ -570,57 +712,75 @@ export default function DhunPage() {
           />
         </div>
 
-        {/* Audio Visualizer & Timeline */}
+        {/* 2. Audio Player Card (Waveform + Play Button in Center + Timeline Line) */}
         <div className="w-full">
-          <VisualizerBar
+          <AudioPlayerCard
             currentAttempt={attemptsUsed}
             currentTime={currentTime}
-            isPlaying={isPlaying}
-            isWon={status === "WON"}
-            isGameOver={status !== "IN_PROGRESS"}
-          />
-        </div>
-
-        {/* Audio Controls */}
-        <div className="w-full">
-          <AudioControls
             isPlaying={isPlaying}
             isLoading={isLoadingAudio}
             error={audioError}
-            currentTime={currentTime}
-            currentAttempt={attemptsUsed}
+            isWon={status === "WON"}
             isGameOver={status !== "IN_PROGRESS"}
             onPlay={handlePlayAudio}
             onPause={handlePauseAudio}
-            onSkip={handleSkip}
             onRefreshAudio={handleRefreshAudio}
-            onGiveUp={handleGiveUp}
           />
         </div>
 
-        {/* Autocomplete Input or Finished Banner */}
-        <div className="w-full pt-1">
+        {/* 3. Attempt Progress Indicator (Attempt 1 of 6 + 6 Pips) */}
+        <div className="w-full flex items-center justify-between text-xs text-neutral-500 dark:text-neutral-400 px-1">
+          <span className="font-semibold text-neutral-600 dark:text-neutral-300">
+            Attempt {Math.min(attemptsUsed + 1, 6)} of 6
+          </span>
+          <div className="flex items-center gap-1.5">
+            {Array.from({ length: 6 }).map((_, i) => {
+              const g = guesses.find((x) => x.attemptIndex === i);
+              let pipClass = "bg-neutral-200 dark:bg-neutral-800";
+              if (g?.isCorrect) pipClass = "bg-emerald-500";
+              else if (g && g.action === "GUESS") pipClass = "bg-red-500";
+              else if (g && g.action === "SKIP") pipClass = "bg-neutral-400 dark:bg-neutral-600";
+              else if (i === attemptsUsed && status === "IN_PROGRESS")
+                pipClass = "bg-[#c5e31e] dark:bg-[#d6f830]";
+
+              return (
+                <span
+                  key={i}
+                  className={`w-3.5 h-1.5 rounded-full transition-colors ${pipClass}`}
+                />
+              );
+            })}
+          </div>
+        </div>
+
+        {/* 4. Autocomplete Input with Unified Skip / Submit Button on the Right */}
+        <div className="w-full">
           {status === "IN_PROGRESS" ? (
             <AutocompleteInput
               onSelectSong={handleGuess}
+              onSkip={handleSkip}
+              nextSkipDuration={nextSkipDuration}
               disabled={isLoadingAudio}
               attemptNumber={attemptsUsed + 1}
             />
           ) : (
-            <div className="w-full bg-slate-900/95 border border-slate-700/80 rounded-2xl p-4 sm:p-5 flex flex-col gap-4 shadow-xl backdrop-blur-md animate-guess-pop">
+            /* Finished Game Results Banner */
+            <div className="w-full bg-white dark:bg-[#14161b] border border-neutral-200 dark:border-neutral-800 rounded-2xl p-4 sm:p-5 flex flex-col gap-3.5 shadow-sm animate-guess-pop">
               {/* Header Status */}
-              <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center justify-between border-b border-neutral-100 dark:border-neutral-800 pb-3">
                 <div className="flex items-center gap-2.5">
                   <span className="text-2xl">{status === "WON" ? "🎉" : "💔"}</span>
                   <div className="flex flex-col text-left">
                     <span
-                      className={`text-xs font-mono font-bold tracking-wider uppercase ${
-                        status === "WON" ? "text-emerald-400" : "text-rose-400"
+                      className={`text-xs font-bold tracking-wider uppercase ${
+                        status === "WON"
+                          ? "text-emerald-700 dark:text-emerald-400"
+                          : "text-rose-700 dark:text-rose-400"
                       }`}
                     >
                       {status === "WON" ? "Shabaash! You Won!" : "Game Over"}
                     </span>
-                    <span className="text-xs text-slate-400">
+                    <span className="text-xs text-neutral-500 dark:text-neutral-400">
                       {status === "WON"
                         ? `Guessed in ${attemptsUsed} of 6 attempts`
                         : "You used all 6 attempts"}
@@ -631,38 +791,39 @@ export default function DhunPage() {
                 <button
                   type="button"
                   onClick={() => setIsGameOverOpen(true)}
-                  className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-amber-400 border border-amber-500/30 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                  className="btn-tactile px-3 py-1.5 bg-neutral-100 hover:bg-neutral-200 dark:bg-[#1a1d24] dark:hover:bg-[#242934] text-neutral-800 dark:text-neutral-200 border border-neutral-200 dark:border-neutral-700 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
                 >
-                  <span>📋</span>
+                  <Share2 className="w-3.5 h-3.5" />
                   <span>Share</span>
                 </button>
               </div>
 
               {/* Revealed Song Card */}
               {solution && (
-                <div className="w-full bg-slate-950/70 border border-slate-800 rounded-xl p-3 flex flex-col text-left gap-1">
-                  <span className="text-[10px] uppercase font-mono tracking-wider text-amber-500/90 font-semibold">
-                    {gameMode === "DAILY" ? "Today's Song" : "Practice Song"}
+                <div className="w-full bg-neutral-50 dark:bg-[#0f1013] border border-neutral-200 dark:border-neutral-800 rounded-xl p-3 flex flex-col text-left gap-1">
+                  <span className="text-[10px] uppercase font-bold tracking-wider text-[#9fba11] dark:text-[#d6f830]">
+                    {gameMode === "DAILY" ? "Today's Dhun" : "Practice Dhun"}
                   </span>
-                  <h3 className="text-base font-bold text-white truncate">
+                  <h3 className="text-base font-bold text-neutral-900 dark:text-white truncate">
                     {solution.title}
                   </h3>
-                  <p className="text-xs text-slate-300 truncate">
+                  <p className="text-xs text-neutral-600 dark:text-neutral-300 truncate">
                     {solution.artists?.join(", ")}
                     {solution.movieOrAlbum ? ` • ${solution.movieOrAlbum}` : ""}
                   </p>
 
-                  {/* Quick external streaming links */}
-                  <div className="flex items-center gap-2 pt-2">
+                  {/* External Streaming Links */}
+                  <div className="flex items-center gap-2 pt-1.5">
                     <a
                       href={`https://open.spotify.com/search/${encodeURIComponent(
                         `${solution.title} ${solution.artists?.join(" ") || ""}`
                       )}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="px-2.5 py-1 bg-[#1DB954]/15 hover:bg-[#1DB954]/25 text-[#1DB954] border border-[#1DB954]/40 rounded-md text-[11px] font-semibold flex items-center gap-1 transition-colors"
+                      className="px-2.5 py-1 bg-[#1DB954]/10 hover:bg-[#1DB954]/20 text-[#1DB954] dark:text-[#1ed760] border border-[#1DB954]/30 rounded-md text-[11px] font-semibold flex items-center gap-1 transition-colors"
                     >
-                      <span>Spotify</span> ↗
+                      <span>Spotify</span>
+                      <ExternalLink className="w-3 h-3" />
                     </a>
                     <a
                       href={`https://www.youtube.com/results?search_query=${encodeURIComponent(
@@ -670,26 +831,30 @@ export default function DhunPage() {
                       )}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="px-2.5 py-1 bg-[#FF0000]/15 hover:bg-[#FF0000]/25 text-rose-400 border border-rose-500/40 rounded-md text-[11px] font-semibold flex items-center gap-1 transition-colors"
+                      className="px-2.5 py-1 bg-[#FF0000]/10 hover:bg-[#FF0000]/20 text-rose-600 dark:text-rose-400 border border-[#FF0000]/30 rounded-md text-[11px] font-semibold flex items-center gap-1 transition-colors"
                     >
-                      <span>YouTube</span> ↗
+                      <span>YouTube</span>
+                      <ExternalLink className="w-3 h-3" />
                     </a>
                   </div>
                 </div>
               )}
 
               {/* Bottom Actions based on Mode */}
-              <div className="flex flex-col sm:flex-row items-center justify-between gap-2.5 pt-1">
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-2.5 pt-0.5">
                 {gameMode === "DAILY" ? (
                   <>
-                    <div className="flex items-center gap-2 text-xs text-slate-400">
-                      <span>Next Daily Dhun:</span>
-                      <span className="font-mono font-bold text-amber-400">{timeLeft || "--:--:--"}</span>
+                    <div className="flex items-center gap-1.5 text-xs text-neutral-500 dark:text-neutral-400">
+                      <Clock className="w-3.5 h-3.5" />
+                      <span>Next Dhun in:</span>
+                      <span className="font-mono font-bold text-[#8fa70e] dark:text-[#d6f830]">
+                        {timeLeft || "--:--:--"}
+                      </span>
                     </div>
                     <button
                       type="button"
                       onClick={() => handleSelectMode("PRACTICE")}
-                      className="w-full sm:w-auto px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-bold text-xs rounded-xl transition-transform active:scale-95 cursor-pointer shadow-md"
+                      className="btn-tactile w-full sm:w-auto px-4 py-2 bg-[#c5e31e] hover:bg-[#b4d216] dark:bg-[#d6f830] dark:hover:bg-[#c2e424] text-neutral-950 font-bold text-xs rounded-xl transition-all cursor-pointer shadow-sm"
                     >
                       🎯 Play Unlimited Practice
                     </button>
@@ -699,21 +864,36 @@ export default function DhunPage() {
                     type="button"
                     onClick={handleNewPracticeSong}
                     disabled={isLoadingAudio}
-                    className="w-full py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-bold text-xs rounded-xl transition-transform active:scale-95 cursor-pointer shadow-md flex items-center justify-center gap-1.5"
+                    className="btn-tactile w-full py-2 bg-[#c5e31e] hover:bg-[#b4d216] dark:bg-[#d6f830] dark:hover:bg-[#c2e424] text-neutral-950 font-bold text-xs rounded-xl transition-all cursor-pointer shadow-sm flex items-center justify-center gap-1.5"
                   >
-                    <span>🎲</span>
-                    <span>Play Another Practice Song</span>
+                    <span>Play Another Practice Song 🎲</span>
                   </button>
                 )}
               </div>
             </div>
           )}
         </div>
+
+        {/* 5. Phrase Underneath Submission Bar */}
+        <p className="text-center text-xs text-neutral-400 dark:text-neutral-500 italic pt-0.5">
+          Trust your ears. The song is closer than you think.
+        </p>
       </main>
 
-      {/* Footer info */}
-      <footer className="w-full max-w-lg pt-2 text-center text-[11px] text-slate-600 font-mono">
-        Dhun • Made with ❤️ for Indian Music
+      {/* 6. Bottom Micro-Copy / Footer */}
+      <footer className="w-full max-w-md sm:max-w-lg pt-2 pb-1 border-t border-neutral-100 dark:border-neutral-850 flex items-center justify-between text-[11px] text-neutral-400 dark:text-neutral-500 font-medium">
+        <span className="flex items-center gap-1.5">
+          <span className="w-1.5 h-1.5 rounded-full bg-[#c5e31e] dark:bg-[#d6f830]" />
+          <span>A fresh dhun every midnight, IST</span>
+        </span>
+        <button
+          type="button"
+          onClick={() => setIsGameOverOpen(true)}
+          className="flex items-center gap-1 hover:text-neutral-800 dark:hover:text-neutral-200 transition-colors cursor-pointer"
+        >
+          <Share2 className="w-3 h-3" />
+          <span>Share</span>
+        </button>
       </footer>
 
       {/* Modals */}

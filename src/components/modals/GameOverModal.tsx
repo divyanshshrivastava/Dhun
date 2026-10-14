@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { GuessRecord } from "../GuessHistory";
+import { X, Share2, Check, Clock, ExternalLink } from "lucide-react";
 
 export interface SolutionDetails {
   id: string;
@@ -44,12 +45,10 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
   useEffect(() => {
     const updateCountdown = () => {
       const now = new Date();
-      // IST is UTC+5.5 hours
       const nowUtcMs = now.getTime() + now.getTimezoneOffset() * 60000;
       const istMs = nowUtcMs + 5.5 * 3600000;
       const istDate = new Date(istMs);
 
-      // Midnight IST of next calendar day
       const nextMidnightIst = new Date(istDate);
       nextMidnightIst.setHours(24, 0, 0, 0);
 
@@ -136,92 +135,102 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
           onClose();
         }
       }}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-guess-pop"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 dark:bg-black/75 backdrop-blur-sm animate-guess-pop"
     >
-      <div className="relative w-full max-w-md bg-slate-900 border border-slate-700/80 rounded-2xl shadow-2xl p-6 flex flex-col items-center text-center gap-5">
+      <div className="relative w-full max-w-md bg-white dark:bg-neutral-850 border border-neutral-200 dark:border-neutral-750 rounded-2xl shadow-2xl p-6 flex flex-col items-center text-center gap-5">
         {/* Close icon button */}
         <button
           type="button"
           onClick={onClose}
           aria-label="Close modal"
-          className="absolute top-4 right-4 text-slate-400 hover:text-white transition-colors p-1"
+          className="absolute top-4 right-4 text-neutral-400 hover:text-neutral-700 dark:hover:text-white transition-colors p-1 cursor-pointer"
         >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-          </svg>
+          <X className="w-5 h-5" />
         </button>
 
         {/* Win/Loss Status Banner */}
-        <div className="flex flex-col items-center gap-1">
+        <div className="flex flex-col items-center gap-1 pt-1">
           <span className="text-4xl">{isWon ? "🎉" : "💔"}</span>
           <h2
             id="game-over-title"
-            className="text-2xl font-bold tracking-tight text-white"
+            className="text-2xl font-bold tracking-tight text-neutral-900 dark:text-white"
           >
-            {isWon ? "Wah! You got it!" : "Game Over"}
+            {isWon ? "Shabaash! You Got It!" : "Game Over"}
           </h2>
-          <p className="text-sm text-slate-400">
+          <p className="text-sm text-neutral-500 dark:text-neutral-400 font-medium">
             {isWon
-              ? `Guessed in ${attemptsUsed} attempt${attemptsUsed === 1 ? "" : "s"}!`
+              ? `Guessed in ${attemptsUsed} of 6 attempts!`
               : "Better luck tomorrow!"}
           </p>
         </div>
 
         {/* Song Solution Card */}
         {solution && (
-          <div className="w-full bg-slate-800/80 border border-slate-700 rounded-xl p-4 flex flex-col items-center gap-2 shadow-inner">
-            <span className="text-xs uppercase font-mono tracking-wider text-amber-400 font-semibold">
-              Today&apos;s Dhun
+          <div className="w-full bg-neutral-50 dark:bg-neutral-800/80 border border-neutral-200 dark:border-neutral-700 rounded-xl p-4 flex flex-col items-center gap-1.5 shadow-sm">
+            <span className="text-[10px] uppercase font-bold tracking-wider text-amber-600 dark:text-amber-400">
+              {mode === "DAILY" ? "Today's Dhun" : "Practice Dhun"}
             </span>
-            <h3 className="text-lg font-bold text-white truncate max-w-full">
+            <h3 className="text-lg font-bold text-neutral-900 dark:text-white truncate max-w-full">
               {solution.title}
             </h3>
-            <p className="text-sm text-slate-300 truncate max-w-full">
+            <p className="text-xs text-neutral-600 dark:text-neutral-300 truncate max-w-full">
               {solution.artists?.join(", ")}
             </p>
             {solution.movieOrAlbum && (
-              <p className="text-xs text-slate-400 italic">
+              <p className="text-xs text-neutral-400 dark:text-neutral-400 italic">
                 From &ldquo;{solution.movieOrAlbum}&rdquo;
               </p>
             )}
 
             {/* Listen on Spotify / YouTube */}
-            <div className="flex items-center gap-3 pt-2">
+            <div className="flex items-center gap-2 pt-2">
               <a
                 href={spotifySearchUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="px-3 py-1.5 bg-[#1DB954]/20 hover:bg-[#1DB954]/30 border border-[#1DB954]/50 text-[#1DB954] rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors"
+                className="px-3 py-1.5 bg-[#1DB954]/10 hover:bg-[#1DB954]/20 border border-[#1DB954]/30 text-[#1DB954] dark:text-[#1ed760] rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors"
               >
-                <span>Spotify</span> ↗
+                <span>Spotify</span>
+                <ExternalLink className="w-3 h-3" />
               </a>
               <a
                 href={youtubeSearchUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="px-3 py-1.5 bg-[#FF0000]/20 hover:bg-[#FF0000]/30 border border-[#FF0000]/50 text-red-400 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors"
+                className="px-3 py-1.5 bg-[#FF0000]/10 hover:bg-[#FF0000]/20 border border-[#FF0000]/30 text-rose-600 dark:text-rose-400 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors"
               >
-                <span>YouTube</span> ↗
+                <span>YouTube</span>
+                <ExternalLink className="w-3 h-3" />
               </a>
             </div>
           </div>
         )}
 
         {/* Share Button & Countdown */}
-        <div className="w-full flex flex-col gap-3">
+        <div className="w-full flex flex-col gap-2.5">
           <button
             type="button"
             onClick={handleCopy}
-            className="w-full h-12 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold rounded-xl flex items-center justify-center gap-2 shadow-lg transition-transform active:scale-95 cursor-pointer"
+            className="btn-tactile w-full h-11 bg-amber-500 hover:bg-amber-600 text-white dark:text-neutral-950 font-bold rounded-xl flex items-center justify-center gap-2 shadow-md transition-all cursor-pointer"
           >
-            <span>{copied ? "✓ Copied to Clipboard!" : "Share Result 📋"}</span>
+            {copied ? (
+              <>
+                <Check className="w-4 h-4 stroke-[3]" />
+                <span>Copied to Clipboard!</span>
+              </>
+            ) : (
+              <>
+                <Share2 className="w-4 h-4" />
+                <span>Share Result</span>
+              </>
+            )}
           </button>
 
           {onOpenStats && (
             <button
               type="button"
               onClick={onOpenStats}
-              className="text-xs text-amber-400 hover:text-amber-300 underline underline-offset-2 transition-colors cursor-pointer"
+              className="text-xs font-semibold text-neutral-600 dark:text-neutral-400 hover:text-amber-600 dark:hover:text-amber-400 underline underline-offset-2 transition-colors cursor-pointer py-1"
             >
               View Full Statistics
             </button>
@@ -231,16 +240,18 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
             <button
               type="button"
               onClick={onPlayNextPractice}
-              className="w-full h-11 bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/30 font-bold rounded-xl flex items-center justify-center gap-2 transition-colors cursor-pointer"
+              className="btn-tactile w-full h-11 bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 text-neutral-900 dark:text-neutral-100 border border-neutral-200 dark:border-neutral-700 font-bold rounded-xl flex items-center justify-center gap-2 transition-colors cursor-pointer"
             >
-              <span>🎲</span>
-              <span>Play Next Practice Song</span>
+              <span>Play Next Practice Song 🎲</span>
             </button>
           ) : (
             /* Midnight Countdown */
-            <div className="pt-2 border-t border-slate-800 flex items-center justify-between text-xs text-slate-400">
-              <span>Next Dhun in:</span>
-              <span className="font-mono font-bold text-amber-400">{timeLeft || "--:--:--"}</span>
+            <div className="pt-2 border-t border-neutral-100 dark:border-neutral-800 flex items-center justify-between text-xs text-neutral-500 dark:text-neutral-400">
+              <span className="flex items-center gap-1.5">
+                <Clock className="w-3.5 h-3.5" />
+                <span>Next Dhun in:</span>
+              </span>
+              <span className="font-mono font-bold text-amber-600 dark:text-amber-400">{timeLeft || "--:--:--"}</span>
             </div>
           )}
         </div>
