@@ -10,6 +10,7 @@
     "test": "vitest run",
     "test:e2e": "playwright test",
     "db:seed": "tsx src/db/seed/seed.ts",
+    "db:cleanup": "tsx scripts/db_cleanup.ts",
     "ingest": "tsx scripts/ingest.ts"
   },
   "dependencies": {
