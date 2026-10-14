@@ -1,124 +1,103 @@
 # Dhun (धुन)
 
-A Heardle-style daily music guessing game built specifically for Indian music. Players identify songs across Bollywood, regional cinema (Tamil, Telugu, Punjabi, Malayalam, Kannada, Bengali, Marathi, Gujarati), Indian Indie, and Ghazals from progressively longer intro slices.
+> **The Daily Indian Music Guessing Game**  
+> Play live at: **[dhun.in](https://dhun.in)**
+
+Dhun (धुन) is a Heardle-style audio guessing game built specifically for Indian music. Players identify songs across Bollywood, regional cinema (Tamil, Telugu, Punjabi, Malayalam, Kannada, Bengali, Marathi, Gujarati), Indian Indie, and Ghazals from progressively longer intro slices.
 
 ---
 
-## Game Mechanics
-- **6 Attempts, Cumulative Slices:** Slices start at the very beginning of the track and expand: `0.1s` → `0.5s` → `1.5s` → `4s` → `8s` → `15s`.
-- **Daily Challenge:** A synchronized song of the day resets at midnight IST (`Asia/Kolkata`) with Wordle-style shareable emoji result grids.
-- **Practice Mode:** Unlimited on-demand play with regional language, genre, and era filters.
-- **Canonical Remake Equivalence:** Canonical work matching ensures remakes, reprisals, and multi-era recordings (e.g., *Dilbar 1999* vs *2018*, *Humma Humma* vs *The Humma Song*) count as correct answers.
+## How It Works
+
+### 1. Cumulative Audio Progression
+- Players begin with a **0.1-second** slice of the track's intro.
+- Each incorrect guess or skip unlocks progressively longer audio:
+  $$\text{0.1s} \longrightarrow \text{0.5s} \longrightarrow \text{1.5s} \longrightarrow \text{4.0s} \longrightarrow \text{8.0s} \longrightarrow \text{15.0s}$$
+- Slices always play cumulatively from time `0:00`, letting players hear the rhythm, instrumentation, and vocals develop naturally.
+
+### 2. Daily Challenge & Global Reset
+- A synchronized song of the day shared by all players worldwide.
+- Resets every midnight Indian Standard Time (**00:00 IST / Asia/Kolkata**).
+- Completing the challenge generates a spoiler-free, Wordle-style emoji grid (e.g., `🟩⬛⬛⬛⬛⬛`) ready to share with friends.
+
+### 3. Practice Mode
+- On-demand, unlimited gameplay.
+- Filter the song pool by **Language** (Hindi, Tamil, Telugu, Punjabi, Malayalam, Kannada, Bengali, Marathi, Gujarati), **Era** (1970s through 2020s), or **Genre** (Bollywood, Romantic, Sufi, Classical, Indie).
+
+### 4. Canonical Remake Equivalence
+- Indian music has a rich history of reprises, recreations, and remakes across eras (e.g., *Dilbar* 1999 vs. 2018, *Humma Humma* vs. *The Humma Song*).
+- Dhun groups versions under a shared **Canonical Work ID**. Guessing either the original or the modern remake counts as a correct match.
 
 ---
 
-## Zero-Cost Free Tier Architecture & Resource Caps
+## How It's Made
 
-Dhun is engineered to run at **$0 monthly operating cost** by staying strictly within the permanent free tiers of modern cloud providers.
+Dhun is built with a server-authoritative architecture engineered to run at **$0 monthly operating cost** within permanent cloud free tiers while delivering sub-second response times and zero client leaks.
 
-| Service | Free Plan Limit | Dhun Optimization & Protection | Dashboard URL |
-| :--- | :--- | :--- | :--- |
-| **Vercel Hobby** | 100k invocations/mo, 100 GB bandwidth | Autocomplete catalog served as static Edge CDN asset (`/catalog.json`), zero serverless invocations for searching. Images set to `unoptimized: true` to bypass paid optimization. | `vercel.com/dashboard/usage` |
-| **Neon Postgres** | 0.5 GB storage, 1 compute branch | Connection pooling with generous 15s timeout and automatic 1-retry on cold-start wake-up. Automated 30-day data retention cleanup (`/api/cron/cleanup`) prunes historical sessions to prevent storage growth. | `console.neon.tech/app/projects` |
-| **Upstash Redis** | 500k commands/mo | Ultra-low command footprint: single-pipeline HTTP REST (`INCR` + `EXPIRE NX`). Applied strictly to `/session` and `/guess`. Fails over automatically to in-memory fallback if quota is exhausted. | `console.upstash.com` |
-| **Cloudflare R2** | 10 GB storage, 1M Class A, 10M Class B, $0 egress | Audio slices are generated once and stored under opaque hash keys. Zero egress fees regardless of listener volume. | `dash.cloudflare.com` -> R2 |
-| **Supabase Storage** | 1 GB storage, 2 GB bandwidth/mo | Drop-in zero-code fallback behind `ClipStorage` interface if Cloudflare credit card verification is skipped. | `app.supabase.com` |
-
----
-
-## Engineering Specifications
-
-### 1. Zero-Leak Anti-Cheat & Streaming Pipeline
-- **Strict Server Authority:** Song titles, recording IDs, and answer metadata never reach client state or network payloads until a terminal game state (`WON` or `LOST`).
-- **Bound HMAC Clip Tokens:** Audio streams are authorized via short-lived (60s) HMAC-SHA256 tokens bound to `(sessionId, attemptIndex)`. Requests for future attempts are rejected (`403 Forbidden`). Tokens are verified in constant time (`crypto.timingSafeEqual`) with `Cache-Control: private, no-store`.
-- **Database Row Locking:** Guess submissions and state transitions use atomic SQL row updates with row-count checks to prevent race conditions on concurrent inputs.
-
-### 2. Audio Pipeline & Timing Integrity
-- **Two-Pass Linear Loudnorm:** Masters undergo two-pass EBU R128 normalization (`-16 LUFS`) with `linear=true` applied statically. This prevents dynamic AGC compressor pumping, ensuring the `0.1s` slice accurately reflects master volume.
-- **Hybrid Format Slicing:**
-  - `0.1s`, `0.5s`, `1.5s`: Lossless PCM WAV (44.1kHz 16-bit stereo) with 0ms container priming delay, eliminating playback start stutter on mobile Safari.
-  - `4s`, `8s`, `15s`: AAC-LC (`.m4a`) with stripped ID3 tags for bandwidth efficiency.
-- **Pluggable Audio Source Provider:** Master audio ingest abstraction supporting local high-fidelity masters, Apple Music previews, and offline synthetic tone generation.
-
-### 3. Client-Side Search & Phonetic Matching
-- **Local In-Memory Index:** Full catalog search runs client-side with `<0.5ms` response time, eliminating roundtrip latency during autocomplete.
-- **Hinglish Phonetic Transliteration:** Handles diverse spellings, vowel reductions (e.g., `aa` ↔ `a`), consonant substitutions (`ph` ↔ `f`, `kh` ↔ `k`), and multi-word acronym matching (`khnh` → *Kal Ho Naa Ho*).
+### 1. Core Stack
+- **Framework:** Next.js (App Router), React 19, TypeScript
+- **Styling:** Custom CSS design system with HSL color tokens, glassmorphic dark surfaces, and responsive micro-animations
+- **Database & ORM:** PostgreSQL on Neon Serverless with connection pooling, orchestrated via Drizzle ORM
+- **Audio Playback:** Native Web Audio API (`AudioContext`) with precise scheduling and custom playhead visualizers
+- **Rate Limiting:** Upstash Serverless Redis via single-pipeline REST with automatic in-memory sliding-window failover
+- **Object Storage:** Cloudflare R2 (S3-compatible, zero egress fees) with drop-in Supabase Storage support
 
 ---
 
-## Content Ingestion Pipeline
+## Architecture & Engineering Highlights
 
-Dhun includes a high-fidelity audio pipeline that normalizes full-length audio tracks and uploads 6 cumulative slices per song (`0.1s` → `15s`).
-
-### 1. Master Audio Placement (`audio-masters/`)
-- Directory path: `./audio-masters/` (workspace root, automatically `.gitignore`d).
-- **Supported Formats:** `.wav`, `.mp3`, `.m4a`, `.flac`, `.aac`.
-- **Minimum Duration:** Audio masters must be at least `16 seconds` long so all 6 slices (`0.1s`, `0.5s`, `1.5s`, `4.0s`, `8.0s`, `15.0s`) can be extracted from the opening intro.
-- **Naming Convention:** Name the audio file matching either the exact song title, catalog ID, or any known alias (e.g. `Tum Hi Ho.mp3`, `Chaiyya Chaiyya.wav`, `kal-ho-naa-ho.mp3`).
-
-### 2. Ingestion Commands
-- **Batch Masters Ingestion:**
-  ```bash
-  npm run ingest:masters
-  ```
-  Scans `audio-masters/`, matches titles against the catalog, applies two-pass linear EBU R128 loudness normalization (`-16 LUFS`), cuts 6 cumulative slices, uploads to storage, and activates the song.
-- **Catalog Coverage Report:**
-  ```bash
-  npm run catalog:report
-  ```
-  Outputs the total song count, percentage of songs with all 6 clips active, and a tabular audit of songs still requiring audio masters.
-
----
-
-## Maintenance & CLI Commands
-
-```bash
-# Ingest single song or batch from audio-masters/
-npm run ingest -- --title "Tum Hi Ho"
-npm run ingest:masters
-
-# Audit catalog clip coverage
-npm run catalog:report
-
-# Generate public/catalog.json for Edge CDN
-npm run catalog:generate
-
-# Prune completed game sessions older than 30 days (Neon free quota safety)
-npm run db:cleanup
-
-# Run unit and API integration tests (Vitest)
-npm test
-
-# Run cross-browser end-to-end tests (Playwright)
-npm run test:e2e
+```
+                       ┌─────────────────────────┐
+                       │       Client App        │
+                       │ (React 19 / Next.js UI) │
+                       └────────────┬────────────┘
+                                    │
+           ┌────────────────────────┼────────────────────────┐
+           │                        │                        │
+     [Static Search]       [Game API Routes]          [Clip Stream]
+           │                        │                        │
+           ▼                        ▼                        ▼
+ ┌───────────────────┐    ┌───────────────────┐    ┌───────────────────┐
+ │   Edge CDN Cache  │    │   Next.js Server  │    │ 60s HMAC Token API│
+ │   /catalog.json   │    │  (State Machine)  │    │  (Constant-Time)  │
+ └───────────────────┘    └─────────┬─────────┘    └─────────┬─────────┘
+                                    │                        │
+                         ┌──────────┴──────────┐             ▼
+                         ▼                     ▼    ┌───────────────────┐
+                  ┌─────────────┐       ┌───────────┐│ Cloudflare R2 /   │
+                  │ Neon DB     │       │ Upstash   ││ Supabase Storage  │
+                  │ (Postgres)  │       │ (Redis)   │└───────────────────┘
+                  └─────────────┘       └───────────┘
 ```
 
+### Zero-Leak Anti-Cheat Security
+- **Server-Authoritative State:** Song titles, artist metadata, and solutions are never delivered to the browser until the game reaches a terminal state (`WON` or `LOST`).
+- **Bound Single-Attempt HMAC Tokens:** Audio playback uses short-lived (60s) HMAC-SHA256 tokens bound strictly to `(sessionId, attemptIndex)`. Requests for future attempts are rejected with `403 Forbidden`, and tokens are validated in constant time (`crypto.timingSafeEqual`) with `Cache-Control: private, no-store`.
+- **Database Row Locking:** Guess submissions use atomic SQL updates with row-count checks to prevent race conditions from concurrent duplicate submissions.
+
+### Audio Pipeline & Timing Integrity
+- **Two-Pass Linear Loudnorm:** Source audio undergoes two-pass EBU R128 loudness normalization (`-16 LUFS`) with `linear=true` applied statically. This eliminates dynamic automatic gain control (AGC) pumping, ensuring the 0.1s clip accurately reflects the master's volume.
+- **Hybrid Slice Encoding:**
+  - `0.1s`, `0.5s`, `1.5s`: Lossless PCM WAV (44.1kHz 16-bit stereo) with 0ms container priming delay, eliminating audio start stutter on iOS Safari.
+  - `4.0s`, `8.0s`, `15.0s`: High-efficiency AAC-LC (`.m4a`) with stripped metadata tags for fast mobile streaming.
+
+### Client-Side Autocomplete & Hinglish Matching
+- **Zero Serverless Search Invocations:** The catalog index (`catalog.json`) is served as an immutable, pre-rendered static asset cached at the Edge CDN.
+- **Instant Response (<0.5ms):** Searches execute entirely in-memory in the browser.
+- **Phonetic Normalization:** Handles phonetic spelling variations, vowel reductions (e.g. *aa* ↔ *a*), consonant interchanges (*ph* ↔ *f*, *kh* ↔ *k*), and multi-word acronym matching (e.g. `khnh` matches *Kal Ho Naa Ho*).
+
+### High-Availability Rate Limiting
+- Upstash Redis enforces rate limits using a single REST pipeline command (`INCR` + `EXPIRE NX`), minimizing quota consumption.
+- If Upstash encounters network errors or reaches free-tier quotas, the system fails open with an in-memory sliding-window fallback, ensuring players are never blocked.
+
+### Automated Retention Cleanup
+- Historical completed sessions older than 30 days are automatically pruned via a daily maintenance endpoint protected by constant-time secret verification, keeping database storage well within Neon's free tier.
+
 ---
 
-## Cross-Browser & Real-Device Testing Matrix
+## Cross-Browser Compatibility
 
-Dhun is verified with automated Playwright end-to-end tests across Chromium and WebKit engines, as well as a real-device test checklist.
-
-### Automated E2E Suite (Playwright)
-```bash
-npm run test:e2e
-```
-Runs 16 automated tests across 4 browser configurations:
-1. **Desktop Chrome** (1280x720)
-2. **Mobile Chrome** (Pixel 5 emulation, 393x851)
-3. **Mobile Safari** (iPhone 12 emulation, 390x844, WebKit)
-4. **Desktop WebKit** (macOS/Safari rendering engine, 1280x720)
-
-### Real-Device Testing Checklist
-When testing on physical smartphones and tablets, verify:
-- **iOS Safari (iPhone):**
-  - Web Audio Context initializes on the first tap of the Play button (respecting iOS user gesture autoplay restrictions).
-  - Audio plays properly even if the physical iPhone Mute/Silent hardware switch is engaged.
-  - Safe-area bottom navigation bar padding (`env(safe-area-inset-bottom)`) does not overlap audio playhead controls or modal action buttons.
-- **Android Chrome (Samsung/Pixel):**
-  - Autocomplete dropdown renders smoothly without virtual keyboard layout thrashing or viewport jumping.
-  - Touch targets for the 6 visualizer segments, Skip button, and Play button are at least 48x48px.
-  - Haptic feedback or audio finish triggers the `onended` playhead reset reliably.
-- **Desktop Firefox / Safari / Chrome:**
-  - High DPI retina displays render SVG icons, visualizer bars, and borders cleanly.
-  - Keyboard navigation (Tab, Enter to submit guess, Space to play/pause) operates correctly.
+Dhun is verified across desktop and mobile browsers:
+- **Mobile Safari (iOS):** AudioContext unlocks on initial touch gesture; handles physical mute switch states.
+- **Android Chrome:** Touch-optimized 48px hit targets, smooth virtual keyboard handling, and responsive autocomplete.
+- **Desktop (Chrome, Safari, Firefox, Edge):** Full keyboard navigation (Space to play/pause, Enter to submit) and retina-ready SVG visualizations.

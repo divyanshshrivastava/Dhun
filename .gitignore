@@ -56,6 +56,7 @@ yarn-error.log*
 IMPLEMENTATION_PLAN.md
 PROGRESS_REPORT.md
 DEPLOYMENT_CHECKLIST.md
+finish.md
 *.local.md
 
 # vercel & lighthouse

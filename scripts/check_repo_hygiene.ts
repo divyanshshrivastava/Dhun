@@ -12,6 +12,7 @@ const FORBIDDEN_FILE_PATTERNS = [
   /^PROGRESS_REPORT\.md$/i,
   /^IMPLEMENTATION_PLAN\.md$/i,
   /^DEPLOYMENT_CHECKLIST\.md$/i,
+  /^finish\.md$/i,
   /^\.env(\..+)?$/i, // Matches .env, .env.local, .env.production, etc. EXCEPT .env.example
   /^audio-masters\//i,
   /^storage\//i,
