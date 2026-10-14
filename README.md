@@ -12,7 +12,7 @@ A Heardle-style daily music guessing game built specifically for Indian music. P
 
 ---
 
-## Zero-Cost Free Tier Architecture & Dashboard Watch Guide
+## Zero-Cost Free Tier Architecture & Resource Caps
 
 Dhun is engineered to run at **$0 monthly operating cost** by staying strictly within the permanent free tiers of modern cloud providers.
 
@@ -20,50 +20,9 @@ Dhun is engineered to run at **$0 monthly operating cost** by staying strictly w
 | :--- | :--- | :--- | :--- |
 | **Vercel Hobby** | 100k invocations/mo, 100 GB bandwidth | Autocomplete catalog served as static Edge CDN asset (`/catalog.json`), zero serverless invocations for searching. Images set to `unoptimized: true` to bypass paid optimization. | `vercel.com/dashboard/usage` |
 | **Neon Postgres** | 0.5 GB storage, 1 compute branch | Connection pooling with generous 15s timeout and automatic 1-retry on cold-start wake-up. Automated 30-day data retention cleanup (`/api/cron/cleanup`) prunes historical sessions to prevent storage growth. | `console.neon.tech/app/projects` |
-| **Upstash Redis** | 500k commands/mo | Ultra-low command footprint: single-pipeline HTTP REST (`INCR` + `EXPIRE NX`). Applied strictly to `/session` and `/guess`. Skipped on `/clip` (already protected by signed HMAC tokens). | `console.upstash.com` |
+| **Upstash Redis** | 500k commands/mo | Ultra-low command footprint: single-pipeline HTTP REST (`INCR` + `EXPIRE NX`). Applied strictly to `/session` and `/guess`. Fails over automatically to in-memory fallback if quota is exhausted. | `console.upstash.com` |
 | **Cloudflare R2** | 10 GB storage, 1M Class A, 10M Class B, $0 egress | Audio slices are generated once and stored under opaque hash keys. Zero egress fees regardless of listener volume. | `dash.cloudflare.com` -> R2 |
 | **Supabase Storage** | 1 GB storage, 2 GB bandwidth/mo | Drop-in zero-code fallback behind `ClipStorage` interface if Cloudflare credit card verification is skipped. | `app.supabase.com` |
-
----
-
-## Deployment Guide (Step-by-Step)
-
-### 1. Database Setup (Neon Free Tier)
-1. Sign up at [Neon](https://neon.tech) and create a project named `dhun-db`.
-2. In the Neon Console dashboard, copy the **Pooled connection string** (ends with `-pooler` in host, includes `?sslmode=require`).
-3. Set `DATABASE_URL` in your environment variables.
-4. Run migrations and seed the catalog:
-   ```bash
-   npx drizzle-kit push
-   npm run db:seed
-   ```
-
-### 2. Rate Limiter Setup (Upstash Redis Free Tier)
-1. Sign up at [Upstash](https://upstash.com) and create a serverless Redis database in your nearest region (e.g., `ap-south-1` Mumbai).
-2. Copy `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` from the Upstash REST API credentials section.
-
-### 3. Audio Storage Setup (Cloudflare R2 or Supabase Fallback)
-#### Option A: Cloudflare R2 (Recommended)
-1. Sign up at [Cloudflare](https://dash.cloudflare.com) and navigate to **R2**.
-2. Create a bucket named `dhun-audio-clips`.
-3. In **Manage R2 API Tokens**, create a token with `Admin Read & Write` permissions.
-4. Copy `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, and `R2_SECRET_ACCESS_KEY`.
-
-#### Option B: Supabase Storage (Fallback without card)
-1. Create a project at [Supabase](https://supabase.com).
-2. Create a storage bucket named `dhun-audio-clips`.
-3. Set `SUPABASE_STORAGE_URL` and `SUPABASE_SERVICE_ROLE_KEY`.
-
-### 4. Vercel Hobby Deployment
-1. Import your Git repository into [Vercel](https://vercel.com).
-2. Add the environment variables from your `.env.example` in the Vercel Project Settings:
-   - `DATABASE_URL`
-   - `DHUN_SERVER_SECRET` (generate with `openssl rand -hex 32`)
-   - `UPSTASH_REDIS_REST_URL` & `UPSTASH_REDIS_REST_TOKEN`
-   - `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET_NAME`
-   - `CRON_SECRET`
-   - `NEXT_PUBLIC_APP_URL`
-3. Click **Deploy**. Vercel will build the static CDN catalog and deploy edge routes with zero cost.
 
 ---
 
@@ -87,12 +46,39 @@ Dhun is engineered to run at **$0 monthly operating cost** by staying strictly w
 
 ---
 
+## Content Ingestion Pipeline
+
+Dhun includes a high-fidelity audio pipeline that normalizes full-length audio tracks and uploads 6 cumulative slices per song (`0.1s` → `15s`).
+
+### 1. Master Audio Placement (`audio-masters/`)
+- Directory path: `./audio-masters/` (workspace root, automatically `.gitignore`d).
+- **Supported Formats:** `.wav`, `.mp3`, `.m4a`, `.flac`, `.aac`.
+- **Minimum Duration:** Audio masters must be at least `16 seconds` long so all 6 slices (`0.1s`, `0.5s`, `1.5s`, `4.0s`, `8.0s`, `15.0s`) can be extracted from the opening intro.
+- **Naming Convention:** Name the audio file matching either the exact song title, catalog ID, or any known alias (e.g. `Tum Hi Ho.mp3`, `Chaiyya Chaiyya.wav`, `kal-ho-naa-ho.mp3`).
+
+### 2. Ingestion Commands
+- **Batch Masters Ingestion:**
+  ```bash
+  npm run ingest:masters
+  ```
+  Scans `audio-masters/`, matches titles against the catalog, applies two-pass linear EBU R128 loudness normalization (`-16 LUFS`), cuts 6 cumulative slices, uploads to storage, and activates the song.
+- **Catalog Coverage Report:**
+  ```bash
+  npm run catalog:report
+  ```
+  Outputs the total song count, percentage of songs with all 6 clips active, and a tabular audit of songs still requiring audio masters.
+
+---
+
 ## Maintenance & CLI Commands
 
 ```bash
-# Ingest songs and upload slices to storage (-16 LUFS normalized)
+# Ingest single song or batch from audio-masters/
 npm run ingest -- --title "Tum Hi Ho"
-npm run ingest -- --all --limit 20
+npm run ingest:masters
+
+# Audit catalog clip coverage
+npm run catalog:report
 
 # Generate public/catalog.json for Edge CDN
 npm run catalog:generate
@@ -100,7 +86,39 @@ npm run catalog:generate
 # Prune completed game sessions older than 30 days (Neon free quota safety)
 npm run db:cleanup
 
-# Run test suites
-npm run test       # Unit and API integration tests (Vitest)
-npm run test:e2e   # Playwright end-to-end full playthrough tests
+# Run unit and API integration tests (Vitest)
+npm test
+
+# Run cross-browser end-to-end tests (Playwright)
+npm run test:e2e
 ```
+
+---
+
+## Cross-Browser & Real-Device Testing Matrix
+
+Dhun is verified with automated Playwright end-to-end tests across Chromium and WebKit engines, as well as a real-device test checklist.
+
+### Automated E2E Suite (Playwright)
+```bash
+npm run test:e2e
+```
+Runs 16 automated tests across 4 browser configurations:
+1. **Desktop Chrome** (1280x720)
+2. **Mobile Chrome** (Pixel 5 emulation, 393x851)
+3. **Mobile Safari** (iPhone 12 emulation, 390x844, WebKit)
+4. **Desktop WebKit** (macOS/Safari rendering engine, 1280x720)
+
+### Real-Device Testing Checklist
+When testing on physical smartphones and tablets, verify:
+- **iOS Safari (iPhone):**
+  - Web Audio Context initializes on the first tap of the Play button (respecting iOS user gesture autoplay restrictions).
+  - Audio plays properly even if the physical iPhone Mute/Silent hardware switch is engaged.
+  - Safe-area bottom navigation bar padding (`env(safe-area-inset-bottom)`) does not overlap audio playhead controls or modal action buttons.
+- **Android Chrome (Samsung/Pixel):**
+  - Autocomplete dropdown renders smoothly without virtual keyboard layout thrashing or viewport jumping.
+  - Touch targets for the 6 visualizer segments, Skip button, and Play button are at least 48x48px.
+  - Haptic feedback or audio finish triggers the `onended` playhead reset reliably.
+- **Desktop Firefox / Safari / Chrome:**
+  - High DPI retina displays render SVG icons, visualizer bars, and borders cleanly.
+  - Keyboard navigation (Tab, Enter to submit guess, Space to play/pause) operates correctly.

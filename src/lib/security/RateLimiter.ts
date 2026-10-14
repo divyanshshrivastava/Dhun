@@ -102,5 +102,5 @@ export function getRateLimiter(): RateLimiter {
       globalRateLimiter = new InMemoryRateLimiter(15, 60);
     }
   }
-  return globalRateLimiter;
+  return globalRateLimiter!;
 }

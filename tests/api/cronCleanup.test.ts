@@ -66,7 +66,7 @@ describe('GET /api/cron/cleanup - Automated Database Pruning Route', () => {
   });
 
   it('returns 500 in production when CRON_SECRET is not configured', async () => {
-    process.env.NODE_ENV = 'production';
+    (process.env as Record<string, string | undefined>).NODE_ENV = 'production';
     delete process.env.CRON_SECRET;
 
     const req = new NextRequest('http://localhost:3000/api/cron/cleanup');

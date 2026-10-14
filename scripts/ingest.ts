@@ -90,6 +90,7 @@ async function runCliIngestion() {
   const manifestRecords: Array<{
     songId: string;
     title: string;
+    active?: boolean;
     clips: Array<{ attemptIndex: number; durationMs: number; format: string; storageKey: string; sizeBytes: number }>;
   }> = [];
 

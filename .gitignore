@@ -49,6 +49,7 @@ yarn-error.log*
 # local documentation
 IMPLEMENTATION_PLAN.md
 PROGRESS_REPORT.md
+DEPLOYMENT_CHECKLIST.md
 
 # vercel
 .vercel

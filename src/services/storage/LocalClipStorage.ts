@@ -92,5 +92,5 @@ export function getClipStorage(): ClipStorage {
       globalClipStorage = new LocalClipStorage();
     }
   }
-  return globalClipStorage;
+  return globalClipStorage!;
 }
