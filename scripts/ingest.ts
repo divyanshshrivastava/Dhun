@@ -12,6 +12,7 @@ import { LocalFileProvider } from '../src/services/audioSources/LocalFileProvide
 import { AppleMusicPreviewProvider } from '../src/services/audioSources/AppleMusicPreviewProvider';
 import { AudioSourceProvider } from '../src/services/audioSources/AudioSourceProvider';
 import { getClipStorage } from '../src/services/storage/LocalClipStorage';
+import { checkSongHasAllClips } from '../src/services/storage/ClipStorage';
 
 interface SongCatalogItem {
   id: string;
@@ -123,9 +124,27 @@ async function runCliIngestion() {
         console.log(`    - Attempt ${clip.attemptIndex} (${clip.durationMs}ms, ${clip.format}): ${clip.storageKey} [${clip.fileSizeBytes} bytes]`);
       }
 
+      // Verify all 6 clips were successfully uploaded
+      const allClipsUploaded = await checkSongHasAllClips(track.id, clipStorage);
+      if (allClipsUploaded) {
+        console.log(`  ✓ All 6 clips verified in [${clipStorage.storageName}]. Marking song active.`);
+        try {
+          const { getDb, schema } = await import('../src/db');
+          const { eq } = await import('drizzle-orm');
+          const db = await getDb();
+          await db.update(schema.songs).set({ active: true }).where(eq(schema.songs.id, track.id));
+          console.log(`  ✓ Database updated: song "${track.title}" is now ACTIVE.`);
+        } catch {
+          // DB not available in standalone runner
+        }
+      } else {
+        console.warn(`  ⚠ Incomplete clips for "${track.title}". Song remains INACTIVE.`);
+      }
+
       manifestRecords.push({
         songId: track.id,
         title: track.title,
+        active: allClipsUploaded,
         clips: slicedClips.map(c => ({
           attemptIndex: c.attemptIndex,
           durationMs: c.durationMs,

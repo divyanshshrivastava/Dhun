@@ -12,6 +12,8 @@ import { getDb, schema } from '../db';
 import { CatalogSongItem, checkIfRemakeOrExactMatchBhai } from '../lib/search/catalogSearch';
 import { generateClipStreamToken, generateSessionSecret, hashSessionSecret } from '../lib/security/clipToken';
 import { resolveDailySong, getTodayChallengeDate } from './dailyChallengeService';
+import { getClipStorage } from './storage/LocalClipStorage';
+import { checkSongHasAllClips } from './storage/ClipStorage';
 import seedCatalog from '../db/seed/songs.json';
 
 export interface GameSessionState {
@@ -162,6 +164,69 @@ export class GameEngine {
     return this.catalog.find(s => s.id === songId);
   }
 
+  // Retrieves playable candidate songs ensuring all 6 cumulative clips exist in storage
+  async getPlayableSongPool(filters?: { language?: string; era?: string; genre?: string }): Promise<CatalogSongItem[]> {
+    const db = await getDb();
+    const clipStorage = getClipStorage();
+
+    let pool = this.catalog;
+
+    // 1. Query active songs from DB if accessible
+    try {
+      const activeDbSongs = await db
+        .select({ id: schema.songs.id })
+        .from(schema.songs)
+        .where(eq(schema.songs.active, true));
+
+      if (activeDbSongs && activeDbSongs.length > 0) {
+        const activeIds = new Set(activeDbSongs.map((s: any) => s.id));
+        const allDbSongs = await db.select({ id: schema.songs.id }).from(schema.songs);
+        const allDbIds = new Set(allDbSongs.map((s: any) => s.id));
+
+        pool = pool.filter(s => {
+          if (allDbIds.has(s.id)) {
+            return activeIds.has(s.id);
+          }
+          return true;
+        });
+      }
+    } catch {
+      // Standalone/in-memory mode fallback
+    }
+
+    // 2. Apply practice filters if provided
+    if (filters?.language) {
+      pool = pool.filter(s => s.language.toLowerCase() === filters.language!.toLowerCase());
+    }
+    if (filters?.era) {
+      pool = pool.filter(s => s.era.toLowerCase() === filters.era!.toLowerCase());
+    }
+    if (filters?.genre) {
+      pool = pool.filter(s => s.genres && s.genres.some(g => g.toLowerCase() === filters.genre!.toLowerCase()));
+    }
+
+    // 3. Filter only songs where all 6 clips exist in storage
+    const songsWithAllClips: CatalogSongItem[] = [];
+    for (const song of pool) {
+      const hasClips = await checkSongHasAllClips(song.id, clipStorage);
+      if (hasClips) {
+        songsWithAllClips.push(song);
+      }
+    }
+
+    if (songsWithAllClips.length > 0) {
+      return songsWithAllClips;
+    }
+
+    // In production, strictly enforce that songs must have all 6 clips uploaded
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('No songs with complete audio clips available in storage.');
+    }
+
+    // In dev & test (before master audio files are sliced), fall back to filtered pool for synthetic tones
+    return pool;
+  }
+
   // Starts or resumes a Daily Challenge session backed by PostgreSQL
   async getOrCreateDailySession(guestId: string, customDate?: string): Promise<ClientSessionResponse> {
     const db = await getDb();
@@ -198,7 +263,8 @@ export class GameEngine {
         }
       }
     } else if (!dailyRecord) {
-      const dailySong = resolveDailySong(challengeDate, this.catalog);
+      const candidateSongs = await this.getPlayableSongPool();
+      const dailySong = resolveDailySong(challengeDate, candidateSongs);
       const inserted = await db
         .insert(schema.dailyChallenges)
         .values({
@@ -277,21 +343,7 @@ export class GameEngine {
     filters?: { language?: string; era?: string; genre?: string }
   ): Promise<ClientSessionResponse> {
     const db = await getDb();
-    let pool = this.catalog;
-
-    if (filters?.language) {
-      pool = pool.filter(s => s.language.toLowerCase() === filters.language!.toLowerCase());
-    }
-    if (filters?.era) {
-      pool = pool.filter(s => s.era.toLowerCase() === filters.era!.toLowerCase());
-    }
-    if (filters?.genre) {
-      pool = pool.filter(s => s.genres && s.genres.some(g => g.toLowerCase() === filters.genre!.toLowerCase()));
-    }
-
-    if (pool.length === 0) {
-      pool = this.catalog;
-    }
+    const pool = await this.getPlayableSongPool(filters);
 
     const randomIndex = Math.floor(Math.random() * pool.length);
     const chosenSong = pool[randomIndex];
