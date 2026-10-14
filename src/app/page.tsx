@@ -618,7 +618,7 @@ export default function DhunPage() {
         <div className="flex flex-col items-center text-center gap-1 select-none pt-0.5">
           <div className="flex items-center gap-1.5 text-[10px] font-bold tracking-[0.2em] uppercase text-neutral-500 dark:text-neutral-400">
             <span className="w-1.5 h-1.5 rounded-full bg-[#c5e31e] dark:bg-[#d6f830]" />
-            <span>A DAILY DOSE OF INDIAN MUSIC</span>
+            <span>YOUR DAILY DOSE OF INDIAN MUSIC</span>
           </div>
 
           <h1 className="brand-type text-3xl sm:text-4xl tracking-tight text-neutral-900 dark:text-white">
@@ -628,10 +628,6 @@ export default function DhunPage() {
               <span className="absolute left-0 right-0 -bottom-1 h-[3.5px] bg-[#c5e31e] dark:bg-[#d6f830] rounded-full" />
             </span>
           </h1>
-
-          <p className="text-xs text-neutral-500 dark:text-neutral-400 font-medium">
-            A little intro. A lot of memories.
-          </p>
         </div>
 
         {/* Mode Selector Segmented Pill */}

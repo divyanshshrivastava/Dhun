@@ -117,18 +117,18 @@ export const GuessHistory: React.FC<GuessHistoryProps> = ({
           return (
             <div
               key={index}
-              className="h-7 px-2.5 rounded-lg border border-[#c5e31e] dark:border-[#d6f830] bg-[#c5e31e]/10 dark:bg-[#d6f830]/10 flex items-center justify-between gap-2 transition-all shadow-xs"
+              className="h-7 px-2.5 rounded-lg border border-emerald-500/50 dark:border-emerald-500/40 bg-emerald-50/80 dark:bg-emerald-950/25 flex items-center justify-between gap-2 transition-all shadow-xs"
               aria-label={`Attempt ${index + 1}: Active attempt`}
             >
               <div className="flex items-center gap-2">
-                <span className="w-3.5 h-3.5 rounded-full bg-[#c5e31e] dark:bg-[#d6f830] text-neutral-950 font-bold text-[9px] flex items-center justify-center">
+                <span className="w-3.5 h-3.5 rounded-full bg-emerald-500 dark:bg-emerald-400 text-neutral-950 font-bold text-[9px] flex items-center justify-center">
                   {index + 1}
                 </span>
                 <span className="text-xs font-semibold text-neutral-900 dark:text-neutral-100">
                   Attempt {index + 1} of {maxAttempts}
                 </span>
               </div>
-              <span className="text-[9px] font-bold uppercase tracking-wider text-[#7a8f08] dark:text-[#d6f830] bg-[#c5e31e]/20 dark:bg-[#d6f830]/20 px-1.5 py-0.5 rounded">
+              <span className="text-[9px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-300 bg-emerald-100/80 dark:bg-emerald-900/50 px-1.5 py-0.5 rounded">
                 ACTIVE
               </span>
             </div>
@@ -139,7 +139,7 @@ export const GuessHistory: React.FC<GuessHistoryProps> = ({
         return (
           <div
             key={index}
-            className="h-5.5 px-2.5 rounded-lg border border-dashed border-neutral-200 dark:border-neutral-850 bg-neutral-50/50 dark:bg-[#14161b]/40 flex items-center justify-between gap-2 opacity-70"
+            className="h-5.5 px-2.5 rounded-lg border border-neutral-200/80 dark:border-neutral-800/80 bg-neutral-50/40 dark:bg-[#131519]/40 flex items-center justify-between gap-2 opacity-65"
             aria-label={`Attempt ${index + 1}: Locked`}
           >
             <div className="flex items-center gap-1.5">
