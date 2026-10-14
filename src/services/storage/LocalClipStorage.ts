@@ -80,7 +80,17 @@ let globalClipStorage: ClipStorage | null = null;
 
 export function getClipStorage(): ClipStorage {
   if (!globalClipStorage) {
-    globalClipStorage = new LocalClipStorage();
+    if (process.env.R2_ACCOUNT_ID && process.env.R2_ACCESS_KEY_ID && process.env.R2_SECRET_ACCESS_KEY) {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const { R2ClipStorage } = require('./R2ClipStorage');
+      globalClipStorage = new R2ClipStorage();
+    } else if (process.env.SUPABASE_STORAGE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const { SupabaseClipStorage } = require('./SupabaseClipStorage');
+      globalClipStorage = new SupabaseClipStorage();
+    } else {
+      globalClipStorage = new LocalClipStorage();
+    }
   }
   return globalClipStorage;
 }
