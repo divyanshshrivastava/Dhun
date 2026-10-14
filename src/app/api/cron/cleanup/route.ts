@@ -16,10 +16,8 @@ export async function GET(req: NextRequest) {
     const cronSecret = process.env.CRON_SECRET;
     const authHeader = req.headers.get('authorization');
     const incomingBearer = authHeader?.startsWith('Bearer ') ? authHeader.slice(7).trim() : null;
-    const incomingKey = req.nextUrl.searchParams.get('key');
-    const providedSecret = incomingBearer || incomingKey;
 
-    // In production or when CRON_SECRET is configured, strictly enforce authorization
+    // In production or when CRON_SECRET is configured, strictly enforce Bearer authorization
     if (process.env.NODE_ENV === 'production' || cronSecret) {
       if (!cronSecret) {
         return NextResponse.json(
@@ -28,9 +26,9 @@ export async function GET(req: NextRequest) {
         );
       }
 
-      if (!providedSecret || !timingSafeCheck(providedSecret, cronSecret)) {
+      if (!incomingBearer || !timingSafeCheck(incomingBearer, cronSecret)) {
         return NextResponse.json(
-          { error: 'Unauthorized: Invalid or missing CRON_SECRET authorization' },
+          { error: 'Unauthorized: Invalid or missing Authorization Bearer token' },
           { status: 401 }
         );
       }

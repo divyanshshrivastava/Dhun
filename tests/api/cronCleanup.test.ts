@@ -54,15 +54,15 @@ describe('GET /api/cron/cleanup - Automated Database Pruning Route', () => {
     expect(json.deletedSessionsCount).toBe(5);
   });
 
-  it('authorizes requests with matching ?key= query parameter', async () => {
+  it('rejects requests attempting ?key= query parameter without Bearer header', async () => {
     process.env.CRON_SECRET = 'super-secret-cron-key-123';
 
     const req = new NextRequest('http://localhost:3000/api/cron/cleanup?key=super-secret-cron-key-123');
     const res = await GET(req);
-    expect(res.status).toBe(200);
+    expect(res.status).toBe(401);
 
     const json = await res.json();
-    expect(json.success).toBe(true);
+    expect(json.error).toContain('Unauthorized');
   });
 
   it('returns 500 in production when CRON_SECRET is not configured', async () => {
