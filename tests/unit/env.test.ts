@@ -13,7 +13,7 @@ describe('Environment Validator & Production Safety', () => {
   });
 
   it('allows development defaults when NODE_ENV is development or test', () => {
-    process.env.NODE_ENV = 'development';
+    (process.env as any).NODE_ENV = 'development';
     delete process.env.DATABASE_URL;
     delete process.env.DHUN_SERVER_SECRET;
 
@@ -24,7 +24,7 @@ describe('Environment Validator & Production Safety', () => {
   });
 
   it('throws in production if DATABASE_URL is missing', () => {
-    process.env.NODE_ENV = 'production';
+    (process.env as any).NODE_ENV = 'production';
     delete process.env.DATABASE_URL;
     process.env.DHUN_SERVER_SECRET = 'a_very_secure_secret_production_key_12345';
 
@@ -32,7 +32,7 @@ describe('Environment Validator & Production Safety', () => {
   });
 
   it('throws in production if DHUN_SERVER_SECRET is missing', () => {
-    process.env.NODE_ENV = 'production';
+    (process.env as any).NODE_ENV = 'production';
     process.env.DATABASE_URL = 'postgres://user:pass@ep-cool-db.us-east-2.aws.neon.tech/dhun_db?sslmode=require';
     delete process.env.DHUN_SERVER_SECRET;
 
@@ -40,7 +40,7 @@ describe('Environment Validator & Production Safety', () => {
   });
 
   it('throws in production if DHUN_SERVER_SECRET is insecure or placeholder', () => {
-    process.env.NODE_ENV = 'production';
+    (process.env as any).NODE_ENV = 'production';
     process.env.DATABASE_URL = 'postgres://user:pass@ep-cool-db.us-east-2.aws.neon.tech/dhun_db?sslmode=require';
     process.env.DHUN_SERVER_SECRET = 'short_test_key';
 
@@ -48,7 +48,7 @@ describe('Environment Validator & Production Safety', () => {
   });
 
   it('succeeds in production when valid DATABASE_URL and DHUN_SERVER_SECRET are configured', () => {
-    process.env.NODE_ENV = 'production';
+    (process.env as any).NODE_ENV = 'production';
     process.env.DATABASE_URL = 'postgres://user:pass@ep-cool-db.us-east-2.aws.neon.tech/dhun_db?sslmode=require';
     process.env.DHUN_SERVER_SECRET = 'prod_secret_production_random_token_987654321';
 

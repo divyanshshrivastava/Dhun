@@ -286,7 +286,7 @@ export class GameEngine {
       pool = pool.filter(s => s.era.toLowerCase() === filters.era!.toLowerCase());
     }
     if (filters?.genre) {
-      pool = pool.filter(s => s.genres.some(g => g.toLowerCase() === filters.genre!.toLowerCase()));
+      pool = pool.filter(s => s.genres && s.genres.some(g => g.toLowerCase() === filters.genre!.toLowerCase()));
     }
 
     if (pool.length === 0) {

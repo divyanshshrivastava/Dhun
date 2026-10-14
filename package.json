@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
+    "test:e2e": "playwright test",
     "db:seed": "tsx src/db/seed/seed.ts",
     "ingest": "tsx scripts/ingest.ts"
   },
@@ -24,6 +25,7 @@
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.9",
+    "@playwright/test": "^1.64.0",
     "@tailwindcss/turbopack": "^4",
     "@types/canvas-confetti": "^1.9.0",
     "@types/node": "^22.20.5",
