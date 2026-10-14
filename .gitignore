@@ -39,6 +39,10 @@ yarn-error.log*
 /raw-audio/
 /storage/
 *.raw
+*.mp3
+*.wav
+*.m4a
+*.flac
 
 # local documentation
 IMPLEMENTATION_PLAN.md
