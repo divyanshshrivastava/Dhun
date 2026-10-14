@@ -89,7 +89,18 @@ let globalRateLimiter: RateLimiter | null = null;
 
 export function getRateLimiter(): RateLimiter {
   if (!globalRateLimiter) {
-    globalRateLimiter = new InMemoryRateLimiter(15, 60);
+    if (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const { UpstashRateLimiter } = require('./UpstashRateLimiter');
+      globalRateLimiter = new UpstashRateLimiter(
+        process.env.UPSTASH_REDIS_REST_URL,
+        process.env.UPSTASH_REDIS_REST_TOKEN,
+        15,
+        60
+      );
+    } else {
+      globalRateLimiter = new InMemoryRateLimiter(15, 60);
+    }
   }
   return globalRateLimiter;
 }

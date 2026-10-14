@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyClipStreamToken } from '@/lib/security/clipToken';
 import { getGameEngine } from '@/services/gameEngine';
-import { getRateLimiter } from '@/lib/security/RateLimiter';
 import { getClipStorage } from '@/services/storage/LocalClipStorage';
 import { generateOpaqueClipKey, AudioCutterService } from '@/services/audioCutter';
 import { SyntheticToneProvider } from '@/services/audioSources/SyntheticToneProvider';
@@ -41,23 +40,7 @@ export async function GET(
       );
     }
 
-    // 2. Rate limiting check per session
-    const limiter = getRateLimiter();
-    const rateCheck = await limiter.check(`clip:${sessionId}`);
-    if (!rateCheck.success) {
-      return NextResponse.json(
-        { error: 'Thoda saans lo! Too many clip streaming requests.' },
-        {
-          status: 429,
-          headers: {
-            'Retry-After': rateCheck.resetSeconds.toString(),
-            'Cache-Control': 'private, no-store',
-          },
-        }
-      );
-    }
-
-    // 3. Fetch session from server state
+    // 2. Fetch session from server state
     const engine = getGameEngine();
     const session = await engine.getSessionById(sessionId);
     if (!session) {

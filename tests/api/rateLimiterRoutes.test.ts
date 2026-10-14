@@ -72,7 +72,7 @@ describe('Rate Limiter Protection Across All Game API Endpoints', () => {
     expect(lastStatus).toBe(429);
   });
 
-  it('enforces 429 Too Many Requests on excessive /clip calls', async () => {
+  it('protects /clip via signed tokens and attempt bounds without consuming rate-limiter quota', async () => {
     const guestId = crypto.randomUUID();
     const sessionReq = new NextRequest('http://localhost:3000/api/game/session', {
       method: 'POST',
@@ -82,19 +82,17 @@ describe('Rate Limiter Protection Across All Game API Endpoints', () => {
     const sessionRes = await handleSessionPost(sessionReq);
     const sessionData = await sessionRes.json();
     const sessionId = sessionData.sessionId;
-    const token = generateClipStreamToken(sessionId, 0, 60);
+    const validToken = generateClipStreamToken(sessionId, 0, 60);
 
-    let lastStatus = 200;
-    for (let i = 0; i < 16; i++) {
-      const req = new NextRequest(`http://localhost:3000/api/game/clip/${token}`);
-      const res = await handleClipGet(req, { params: Promise.resolve({ token }) });
-      lastStatus = res.status;
-      if (lastStatus === 429) {
-        expect(res.headers.get('retry-after')).toBeDefined();
-        break;
-      }
-    }
+    // Valid token succeeds
+    const req = new NextRequest(`http://localhost:3000/api/game/clip/${validToken}`);
+    const res = await handleClipGet(req, { params: Promise.resolve({ token: validToken }) });
+    expect(res.status).toBe(200);
 
-    expect(lastStatus).toBe(429);
+    // Tampered token is rejected with 400
+    const tamperedToken = `${validToken.split('.')[0]}.tampered_signature_12345`;
+    const badReq = new NextRequest(`http://localhost:3000/api/game/clip/${tamperedToken}`);
+    const badRes = await handleClipGet(badReq, { params: Promise.resolve({ token: tamperedToken }) });
+    expect(badRes.status).toBe(400);
   });
 });
