@@ -93,6 +93,7 @@ export async function GET(
 
       const slices = await audioCutter.sliceTrack(masterBuffer, inputExt, {
         songId: session.songId,
+        fastNormalize: true,
       });
 
       for (const slice of slices) {

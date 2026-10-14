@@ -54,6 +54,7 @@ export interface SlicingOptions {
   outputDirectory?: string;
   startOffsetSeconds?: number;
   autoTrimSilence?: boolean;
+  fastNormalize?: boolean;
 }
 
 // Generates an unguessable opaque filename so users cannot inspect network requests
@@ -133,48 +134,51 @@ export class AudioCutterService {
       // 1. Write the incoming master audio buffer to disk
       fs.writeFileSync(tempInputFile, masterAudioBuffer);
 
-      // 2. Two-pass linear EBU R128 loudness normalization
-      // Pass 1: Measure loudness statistics of the master track
+      // 2. Normalization: single-pass for fast on-demand requests, or two-pass for mastering/ingestion
       let twoPassApplied = false;
-      try {
-        const measureArgs = [
-          '-y',
-          '-i', tempInputFile,
-          '-af', 'loudnorm=I=-16:TP=-1.5:LRA=11:print_format=json',
-          '-f', 'null',
-          '-',
-        ];
+      const enableTwoPass = !options.fastNormalize && process.env.DHUN_FAST_SLICING !== 'true';
 
-        // In ffmpeg, audio filter stats are output to stderr
-        let measureOutput = '';
+      if (enableTwoPass) {
         try {
-          const res = await execFileAsync(this.ffmpegPath, measureArgs);
-          measureOutput = (res.stderr || res.stdout || '').toString();
-        } catch (err: unknown) {
-          // Even if exit code is non-zero, ffmpeg prints filter JSON to stderr
-          const stderr = (err as { stderr?: string }).stderr;
-          measureOutput = stderr ? stderr.toString() : '';
-        }
-
-        const jsonMatch = measureOutput.match(/\{[\s\S]*?"input_i"[\s\S]*?\}/);
-        if (jsonMatch) {
-          const stats = JSON.parse(jsonMatch[0]);
-          const linearArgs = [
+          const measureArgs = [
             '-y',
             '-i', tempInputFile,
-            '-af',
-            `loudnorm=I=-16:TP=-1.5:LRA=11:measured_I=${stats.input_i}:measured_TP=${stats.input_tp}:measured_LRA=${stats.input_lra}:measured_thresh=${stats.input_thresh}:offset=${stats.target_offset}:linear=true`,
-            '-map_metadata', '-1',
-            '-ar', '44100',
-            '-ac', '2',
-            tempNormalizedMaster,
+            '-af', 'loudnorm=I=-16:TP=-1.5:LRA=11:print_format=json',
+            '-f', 'null',
+            '-',
           ];
-          await execFileAsync(this.ffmpegPath, linearArgs);
-          twoPassApplied = true;
+
+          // In ffmpeg, audio filter stats are output to stderr
+          let measureOutput = '';
+          try {
+            const res = await execFileAsync(this.ffmpegPath, measureArgs);
+            measureOutput = (res.stderr || res.stdout || '').toString();
+          } catch (err: unknown) {
+            // Even if exit code is non-zero, ffmpeg prints filter JSON to stderr
+            const stderr = (err as { stderr?: string }).stderr;
+            measureOutput = stderr ? stderr.toString() : '';
+          }
+
+          const jsonMatch = measureOutput.match(/\{[\s\S]*?"input_i"[\s\S]*?\}/);
+          if (jsonMatch) {
+            const stats = JSON.parse(jsonMatch[0]);
+            const linearArgs = [
+              '-y',
+              '-i', tempInputFile,
+              '-af',
+              `loudnorm=I=-16:TP=-1.5:LRA=11:measured_I=${stats.input_i}:measured_TP=${stats.input_tp}:measured_LRA=${stats.input_lra}:measured_thresh=${stats.input_thresh}:offset=${stats.target_offset}:linear=true`,
+              '-map_metadata', '-1',
+              '-ar', '44100',
+              '-ac', '2',
+              tempNormalizedMaster,
+            ];
+            await execFileAsync(this.ffmpegPath, linearArgs);
+            twoPassApplied = true;
+          }
+        } catch (measureErr) {
+          // Fallback to single-pass if measure extraction failed
+          console.warn('Bhai two-pass loudnorm measurement fell back to single pass:', (measureErr as Error).message);
         }
-      } catch (measureErr) {
-        // Fallback to single-pass if measure extraction failed
-        console.warn('Bhai two-pass loudnorm measurement fell back to single pass:', (measureErr as Error).message);
       }
 
       if (!twoPassApplied) {

@@ -160,7 +160,10 @@ export class DhunAudioPlayer {
 
   // Hardware-timed playback using AudioBufferSourceNode.onended (NO setTimeout)
   play(): void {
-    if (!this.currentBuffer) return;
+    if (!this.currentBuffer) {
+      this.callbacks.onError?.("Audio clip is loading or unavailable. Please click Retry Audio.");
+      return;
+    }
     const ctx = this.ensureAudioContext();
 
     if (this.status === 'playing') return;
