@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "tsx scripts/generate_static_catalog.ts && next build",
+    "catalog:generate": "tsx scripts/generate_static_catalog.ts",
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
