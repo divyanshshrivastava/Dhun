@@ -89,7 +89,11 @@ let globalRateLimiter: RateLimiter | null = null;
 
 export function getRateLimiter(): RateLimiter {
   if (!globalRateLimiter) {
-    if (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) {
+    if (
+      process.env.NODE_ENV !== 'test' &&
+      process.env.UPSTASH_REDIS_REST_URL &&
+      process.env.UPSTASH_REDIS_REST_TOKEN
+    ) {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       const { UpstashRateLimiter } = require('./UpstashRateLimiter');
       globalRateLimiter = new UpstashRateLimiter(

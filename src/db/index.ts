@@ -9,6 +9,14 @@ import seedCatalog from './seed/songs.json';
 
 export type AppDatabase = NodePgDatabase<typeof schema> | PgliteDatabase<typeof schema>;
 
+// Attach to globalThis so all Next.js route bundles in dev server share the same database instance
+declare global {
+  // eslint-disable-next-line no-var
+  var __dhun_cached_db: any | undefined;
+  // eslint-disable-next-line no-var
+  var __dhun_init_promise: Promise<any> | null | undefined;
+}
+
 let cachedDb: any = null;
 let initPromise: Promise<any> | null = null;
 
@@ -33,10 +41,12 @@ export async function executeWithRetry<T>(queryFn: () => Promise<T>, maxRetries 
 }
 
 export async function getDb(): Promise<any> {
+  if (globalThis.__dhun_cached_db) return globalThis.__dhun_cached_db;
   if (cachedDb) return cachedDb;
+  if (globalThis.__dhun_init_promise) return globalThis.__dhun_init_promise;
   if (initPromise) return initPromise;
 
-  initPromise = (async () => {
+  const promise = (async () => {
     // In production, strictly enforce external PostgreSQL via DATABASE_URL
     if (process.env.NODE_ENV === 'production' && !process.env.DATABASE_URL) {
       throw new Error(
@@ -62,29 +72,46 @@ export async function getDb(): Promise<any> {
       });
 
       cachedDb = drizzleNodePg(pool, { schema });
+      globalThis.__dhun_cached_db = cachedDb;
       return cachedDb;
     }
 
     // 2. Default in-process PostgreSQL 18.6 engine (dev & test only)
-    const pglite = new PGlite();
+    // In unit/integration tests, use ephemeral in-memory to keep test suites isolated
+    // In dev server, persist to .pglite directory so all route chunks share the exact same database
+    const isTest = process.env.NODE_ENV === 'test';
+    const dataDir = isTest ? undefined : path.join(process.cwd(), '.pglite');
+    const pglite = new PGlite(dataDir);
 
-    // Apply migration SQL DDL
+    // Apply migration SQL DDL only if tables do not already exist
     const migrationPath = path.join(process.cwd(), 'drizzle', '0000_nappy_vapor.sql');
     if (fs.existsSync(migrationPath)) {
-      const rawSql = fs.readFileSync(migrationPath, 'utf-8');
-      const statements = rawSql
-        .split('--> statement-breakpoint')
-        .map(s => s.trim())
-        .filter(s => s.length > 0);
+      let tablesExist = false;
+      try {
+        const check = await pglite.query(
+          "SELECT 1 FROM information_schema.tables WHERE table_name = 'game_sessions' LIMIT 1;"
+        );
+        tablesExist = check.rows.length > 0;
+      } catch {
+        tablesExist = false;
+      }
 
-      for (const stmt of statements) {
-        await pglite.query(stmt);
+      if (!tablesExist) {
+        const rawSql = fs.readFileSync(migrationPath, 'utf-8');
+        const statements = rawSql
+          .split('--> statement-breakpoint')
+          .map(s => s.trim())
+          .filter(s => s.length > 0);
+
+        for (const stmt of statements) {
+          await pglite.query(stmt);
+        }
       }
     }
 
     const dbInstance = drizzlePglite(pglite, { schema });
 
-    // Seed works and songs from seed catalog in high-performance batches
+    // Seed works and songs from seed catalog in high-performance batches if not already populated
     const existingWorks = await dbInstance.select().from(schema.musicalWorks).limit(1);
     if (existingWorks.length === 0) {
       const workBatch = seedCatalog.works.map(w => ({
@@ -107,15 +134,19 @@ export async function getDb(): Promise<any> {
         difficulty: s.difficulty,
         audio_source_type: 'local_upload',
         active: true,
+        clip_start_seconds: (s as unknown as { clip_start_seconds?: number }).clip_start_seconds ?? 0,
       }));
       await dbInstance.insert(schema.songs).values(songBatch);
     }
 
     cachedDb = dbInstance;
+    globalThis.__dhun_cached_db = dbInstance;
     return cachedDb;
   })();
 
-  return initPromise;
+  initPromise = promise;
+  globalThis.__dhun_init_promise = promise;
+  return promise;
 }
 
 export { schema };

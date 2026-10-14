@@ -72,6 +72,15 @@ export interface ClientSessionResponse {
     spotifyUrl?: string;
     youtubeUrl?: string;
   };
+  solution?: {
+    title: string;
+    artists: string[];
+    movieOrAlbum?: string;
+    language: string;
+    era: string;
+    spotifyUrl?: string;
+    youtubeUrl?: string;
+  };
   shareGrid?: string;
 }
 
@@ -759,6 +768,7 @@ export class GameEngine {
         guessedSongTitle: g.raw_guess_text,
       })),
       answer: answerPayload,
+      solution: answerPayload,
       shareGrid: session.status !== 'IN_PROGRESS' ? this.buildShareGrid(session.mode, previousGuesses, session.max_attempts) : undefined,
     };
   }
@@ -776,12 +786,21 @@ export class GameEngine {
   }
 }
 
-// Global engine singleton
+// Global engine singleton attached to globalThis to survive Next.js per-route module bundling
+declare global {
+  // eslint-disable-next-line no-var
+  var __dhun_game_engine: GameEngine | undefined;
+}
+
 let globalGameEngine: GameEngine | null = null;
 
 export function getGameEngine(): GameEngine {
-  if (!globalGameEngine) {
-    globalGameEngine = new GameEngine();
+  if (process.env.NODE_ENV === 'production' && globalThis.__dhun_game_engine) {
+    return globalThis.__dhun_game_engine;
   }
-  return globalGameEngine;
+  const engine = new GameEngine();
+  if (process.env.NODE_ENV === 'production') {
+    globalThis.__dhun_game_engine = engine;
+  }
+  return engine;
 }
