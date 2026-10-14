@@ -15,10 +15,10 @@ export interface ClipStorage {
   hasClip(storageKey: string): Promise<boolean>;
 }
 
+import { generateOpaqueClipKey } from '../audioCutter';
+
 // Verifies that all 6 cumulative clips exist for a given song in storage
 export async function checkSongHasAllClips(songId: string, storage: ClipStorage): Promise<boolean> {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { generateOpaqueClipKey } = require('../audioCutter');
   for (let attempt = 0; attempt < 6; attempt++) {
     const format = attempt < 3 ? 'wav' : 'm4a';
     const opaqueKey = generateOpaqueClipKey(songId, attempt, format);
