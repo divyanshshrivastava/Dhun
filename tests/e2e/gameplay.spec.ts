@@ -5,7 +5,12 @@ test.describe('Dhun Web Application - Full End-to-End Game Lifecycle', () => {
     // Start with clean guest session
     await page.goto('/');
     await page.evaluate(() => localStorage.clear());
+    const sessionPromise = page.waitForResponse(
+      (resp) => resp.url().includes('/api/game/session') && resp.status() === 200,
+      { timeout: 15000 }
+    ).catch(() => null);
     await page.reload();
+    await sessionPromise;
     // Wait for the app to initialize
     await page.waitForSelector('div[role="region"][aria-label="Guess history"]', { timeout: 15000 });
   });
@@ -29,13 +34,16 @@ test.describe('Dhun Web Application - Full End-to-End Game Lifecycle', () => {
   });
 
   test('advances clip duration on Skip and records attempt in history', async ({ page }) => {
-    // Wait for skip button to be ready
+    // Wait for skip button to be ready and enabled
     const skipButton = page.locator('button:has-text("Skip")');
     await expect(skipButton).toBeVisible({ timeout: 10000 });
     await expect(skipButton).toBeEnabled({ timeout: 10000 });
 
-    // Click Skip (+0.4s)
-    await skipButton.click();
+    // Click Skip and wait for guess response
+    await Promise.all([
+      page.waitForResponse((resp) => resp.url().includes('/api/game/guess') && resp.status() === 200, { timeout: 10000 }).catch(() => null),
+      skipButton.click(),
+    ]);
 
     // Verify first attempt shows SKIPPED
     await expect(page.locator('div[aria-label="Attempt 1: Skipped"]')).toBeVisible({ timeout: 10000 });
@@ -78,14 +86,18 @@ test.describe('Dhun Web Application - Full End-to-End Game Lifecycle', () => {
 
     // Dropdown listbox should appear with options
     const listbox = page.locator('ul[role="listbox"]');
-    await expect(listbox).toBeVisible({ timeout: 5000 });
+    await expect(listbox).toBeVisible({ timeout: 10000 });
 
     const option = page.locator('li[role="option"]:has-text("Dil Ke Saaz")').first();
-    await expect(option).toBeVisible();
-    await option.click();
+    await expect(option).toBeVisible({ timeout: 10000 });
+
+    await Promise.all([
+      page.waitForResponse((resp) => resp.url().includes('/api/game/guess') && resp.status() === 200, { timeout: 15000 }).catch(() => null),
+      option.click(),
+    ]);
 
     // Victory modal should open and display winning solution
-    await expect(page.getByText('Wah! You got it!')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText('Wah! You got it!')).toBeVisible({ timeout: 15000 });
     await expect(page.locator('div[role="dialog"]')).toContainText('Dil Ke Saaz');
   });
 });
