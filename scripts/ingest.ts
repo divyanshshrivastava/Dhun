@@ -57,17 +57,27 @@ async function runCliIngestion() {
   const idFlagIndex = args.indexOf('--id');
   const limitFlagIndex = args.indexOf('--limit');
 
-  if (titleFlagIndex !== -1 && args[titleFlagIndex + 1]) {
+  if (args.includes('--all-masters') || args.includes('--batch-masters')) {
+    provider = new LocalFileProvider();
+    const localProvider = provider as LocalFileProvider;
+    songsToProcess = [];
+    for (const song of allSongs) {
+      try {
+        await localProvider.fetchTrack({ id: song.id, title: song.title });
+        songsToProcess.push(song);
+      } catch {
+        // No local master file for this song
+      }
+    }
+    console.log(`Found ${songsToProcess.length} catalog track(s) with master files in audio-masters/.`);
+  } else if (titleFlagIndex !== -1 && args[titleFlagIndex + 1]) {
     const searchTitle = args[titleFlagIndex + 1].toLowerCase();
     songsToProcess = allSongs.filter(s => s.title.toLowerCase().includes(searchTitle));
   } else if (idFlagIndex !== -1 && args[idFlagIndex + 1]) {
     const targetId = args[idFlagIndex + 1];
     songsToProcess = allSongs.filter(s => s.id === targetId);
   } else if (args.includes('--all') || args.includes('--batch')) {
-    let limit = 5; // Default batch limit for safety
-    if (limitFlagIndex !== -1 && args[limitFlagIndex + 1]) {
-      limit = parseInt(args[limitFlagIndex + 1], 10);
-    }
+    const limit = limitFlagIndex !== -1 ? parseInt(args[limitFlagIndex + 1], 10) : allSongs.length;
     songsToProcess = allSongs.slice(0, limit);
   } else {
     // Default to the first test song

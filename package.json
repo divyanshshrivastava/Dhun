@@ -12,6 +12,10 @@
     "test:e2e": "playwright test",
     "db:seed": "tsx src/db/seed/seed.ts",
     "db:cleanup": "tsx scripts/db_cleanup.ts",
+    "catalog:report": "tsx scripts/catalog_status_report.ts",
+    "ingest:report": "tsx scripts/catalog_status_report.ts",
+    "ingest:masters": "tsx scripts/ingest.ts --all-masters",
+    "ingest:batch": "tsx scripts/ingest.ts --all",
     "ingest": "tsx scripts/ingest.ts"
   },
   "dependencies": {
