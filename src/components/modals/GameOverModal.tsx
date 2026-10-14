@@ -75,6 +75,18 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
     return () => clearInterval(interval);
   }, []);
 
+  // Close on Escape key press
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   // Generate Wordle-style emoji grid
@@ -119,6 +131,11 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
       role="dialog"
       aria-modal="true"
       aria-labelledby="game-over-title"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          onClose();
+        }
+      }}
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-guess-pop"
     >
       <div className="relative w-full max-w-md bg-slate-900 border border-slate-700/80 rounded-2xl shadow-2xl p-6 flex flex-col items-center text-center gap-5">

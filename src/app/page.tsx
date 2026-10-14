@@ -25,10 +25,14 @@ export default function DhunPage() {
 
   // Audio Player State
   const playerRef = useRef<DhunAudioPlayer | null>(null);
+  const sessionTokenRef = useRef<string>("");
+  const hasMountedRef = useRef<boolean>(false);
+  const practiceFiltersRef = useRef<PracticeFilters>({});
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [isLoadingAudio, setIsLoadingAudio] = useState<boolean>(false);
   const [currentTime, setCurrentTime] = useState<number>(0);
   const [audioError, setAudioError] = useState<string | null>(null);
+  const [timeLeft, setTimeLeft] = useState<string>("");
 
   // Modals
   const [isGameOverOpen, setIsGameOverOpen] = useState<boolean>(false);
@@ -41,6 +45,36 @@ export default function DhunPage() {
     maxStreak: 0,
     guessDistribution: { "1": 0, "2": 0, "3": 0, "4": 0, "5": 0, "6": 0 },
   });
+
+  // Countdown timer to midnight IST (UTC+5:30)
+  useEffect(() => {
+    const updateCountdown = () => {
+      const now = new Date();
+      const nowUtcMs = now.getTime() + now.getTimezoneOffset() * 60000;
+      const istMs = nowUtcMs + 5.5 * 3600000;
+      const istDate = new Date(istMs);
+      const nextMidnightIst = new Date(istDate);
+      nextMidnightIst.setHours(24, 0, 0, 0);
+
+      const diffMs = nextMidnightIst.getTime() - istDate.getTime();
+      if (diffMs <= 0) {
+        setTimeLeft("00:00:00");
+        return;
+      }
+
+      const hours = Math.floor(diffMs / 3600000);
+      const minutes = Math.floor((diffMs % 3600000) / 60000);
+      const seconds = Math.floor((diffMs % 60000) / 1000);
+
+      setTimeLeft(
+        `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`
+      );
+    };
+
+    updateCountdown();
+    const interval = setInterval(updateCountdown, 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   // 1. Initialize Player and Guest ID on Mount
   useEffect(() => {
@@ -104,10 +138,19 @@ export default function DhunPage() {
   const [gameMode, setGameMode] = useState<"DAILY" | "PRACTICE">("DAILY");
   const [practiceFilters, setPracticeFilters] = useState<PracticeFilters>({});
 
+  const updateSessionToken = (token: string, sId?: string) => {
+    setSessionToken(token);
+    sessionTokenRef.current = token;
+    if (sId) {
+      localStorage.setItem(`dhun_session_token_${sId}`, token);
+    }
+  };
+
   // 2. Start or Resume Game Session (Daily or Practice)
   const startSession = useCallback(
     async (mode: "DAILY" | "PRACTICE", customFilters?: PracticeFilters) => {
       if (!guestId) return;
+      setGameMode(mode);
       setIsLoadingAudio(true);
       setAudioError(null);
       setIsGameOverOpen(false);
@@ -118,13 +161,14 @@ export default function DhunPage() {
       setCurrentTime(0);
 
       try {
+        const filtersToUse = mode === "PRACTICE" ? (customFilters ?? practiceFiltersRef.current) : undefined;
         const res = await fetch("/api/game/session", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             guestId,
             mode,
-            filters: mode === "PRACTICE" ? customFilters || practiceFilters : undefined,
+            filters: filtersToUse,
           }),
         });
 
@@ -137,12 +181,11 @@ export default function DhunPage() {
 
         // Cache and restore sessionToken for session persistence across reloads
         if (data.sessionToken) {
-          setSessionToken(data.sessionToken);
-          localStorage.setItem(`dhun_session_token_${data.sessionId}`, data.sessionToken);
+          updateSessionToken(data.sessionToken, data.sessionId);
         } else {
           const savedToken = localStorage.getItem(`dhun_session_token_${data.sessionId}`);
           if (savedToken) {
-            setSessionToken(savedToken);
+            updateSessionToken(savedToken, data.sessionId);
           }
         }
 
@@ -154,7 +197,16 @@ export default function DhunPage() {
         const solutionPayload = data.solution || data.answer;
         if (solutionPayload) {
           setSolution(solutionPayload);
-          setIsGameOverOpen(true);
+          // Only auto-open if the modal has not been closed by the user yet
+          const dismissKey = `dhun_modal_closed_${data.challengeDate || data.sessionId}`;
+          const alreadyDismissed = localStorage.getItem(dismissKey);
+          if (!alreadyDismissed) {
+            setIsGameOverOpen(true);
+          } else {
+            setIsGameOverOpen(false);
+          }
+        } else {
+          setIsGameOverOpen(false);
         }
 
         // Configure player token refresh callback
@@ -162,7 +214,7 @@ export default function DhunPage() {
           const sId = data.sessionId;
           playerRef.current.setTokenRefreshCallback(async (attemptIndex: number) => {
             const currentSavedToken =
-              sessionToken ||
+              sessionTokenRef.current ||
               data.sessionToken ||
               localStorage.getItem(`dhun_session_token_${sId}`) ||
               "";
@@ -186,12 +238,14 @@ export default function DhunPage() {
         // Fetch and decode initial clip immediately upon URL arrival
         const activeClip = data.currentClip || data.nextClip;
         if (activeClip?.clipStreamUrl && playerRef.current) {
-          await playerRef.current.loadAndDecodeClip(
+          const loaded = await playerRef.current.loadAndDecodeClip(
             activeClip.clipStreamUrl,
             activeClip.attemptIndex,
             activeClip.durationMs
           );
-          setAudioError(null);
+          if (loaded) {
+            setAudioError(null);
+          }
         }
       } catch (err: any) {
         setAudioError(err.message || "Failed to load game session");
@@ -199,12 +253,13 @@ export default function DhunPage() {
         setIsLoadingAudio(false);
       }
     },
-    [guestId, practiceFilters, sessionToken]
+    [guestId]
   );
 
-  // Initial load on mount once guestId is ready
+  // Initial load on mount once guestId is ready (runs only ONCE, never on mode switch)
   useEffect(() => {
-    if (guestId) {
+    if (guestId && !hasMountedRef.current) {
+      hasMountedRef.current = true;
       fetchStats(guestId);
       startSession("DAILY");
     }
@@ -212,18 +267,27 @@ export default function DhunPage() {
 
   const handleSelectMode = (mode: "DAILY" | "PRACTICE") => {
     setGameMode(mode);
-    startSession(mode, practiceFilters);
+    startSession(mode, practiceFiltersRef.current);
   };
 
   const handleFilterChange = (newFilters: PracticeFilters) => {
     setPracticeFilters(newFilters);
+    practiceFiltersRef.current = newFilters;
     if (gameMode === "PRACTICE") {
       startSession("PRACTICE", newFilters);
     }
   };
 
   const handleNewPracticeSong = () => {
-    startSession("PRACTICE", practiceFilters);
+    startSession("PRACTICE", practiceFiltersRef.current);
+  };
+
+  const handleCloseGameOver = () => {
+    setIsGameOverOpen(false);
+    const key = challengeDate || sessionId;
+    if (key) {
+      localStorage.setItem(`dhun_modal_closed_${key}`, "true");
+    }
   };
 
   // Handle Play/Pause
@@ -249,12 +313,16 @@ export default function DhunPage() {
     setIsLoadingAudio(true);
     setAudioError(null);
     try {
+      const activeToken =
+        sessionToken ||
+        localStorage.getItem(`dhun_session_token_${sessionId}`) ||
+        "";
       const res = await fetch("/api/game/clip/refresh", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           sessionId,
-          sessionToken,
+          sessionToken: activeToken,
           attemptIndex: attemptsUsed,
         }),
       });
@@ -264,8 +332,14 @@ export default function DhunPage() {
       }
 
       const data = await res.json();
-      await playerRef.current.loadAndDecodeClip(data.clipStreamUrl, data.attemptIndex);
-      setAudioError(null);
+      const loaded = await playerRef.current.loadAndDecodeClip(
+        data.clipStreamUrl,
+        data.attemptIndex,
+        data.durationMs
+      );
+      if (loaded) {
+        setAudioError(null);
+      }
     } catch (err: any) {
       setAudioError(err.message || "Audio reload failed");
     } finally {
@@ -279,12 +353,17 @@ export default function DhunPage() {
     setIsLoadingAudio(true);
     setAudioError(null);
     try {
+      const activeToken =
+        sessionToken ||
+        sessionTokenRef.current ||
+        localStorage.getItem(`dhun_session_token_${sessionId}`) ||
+        "";
       const res = await fetch("/api/game/guess", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           sessionId,
-          sessionToken,
+          sessionToken: activeToken,
           action: "GUESS",
           guessedSongId: selectedSong.id,
         }),
@@ -338,12 +417,17 @@ export default function DhunPage() {
     setIsLoadingAudio(true);
     setAudioError(null);
     try {
+      const activeToken =
+        sessionToken ||
+        sessionTokenRef.current ||
+        localStorage.getItem(`dhun_session_token_${sessionId}`) ||
+        "";
       const res = await fetch("/api/game/guess", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           sessionId,
-          sessionToken,
+          sessionToken: activeToken,
           action: "SKIP",
         }),
       });
@@ -396,12 +480,17 @@ export default function DhunPage() {
 
     setIsLoadingAudio(true);
     try {
+      const activeToken =
+        sessionToken ||
+        sessionTokenRef.current ||
+        localStorage.getItem(`dhun_session_token_${sessionId}`) ||
+        "";
       const res = await fetch("/api/game/give-up", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           sessionId,
-          sessionToken,
+          sessionToken: activeToken,
         }),
       });
 
@@ -518,22 +607,105 @@ export default function DhunPage() {
               attemptNumber={attemptsUsed + 1}
             />
           ) : (
-            <div className="w-full p-4 bg-slate-900/90 border border-slate-700 rounded-xl flex items-center justify-between shadow-lg">
-              <div className="flex flex-col text-left">
-                <span className="text-xs uppercase font-mono text-amber-400 font-bold">
-                  {status === "WON" ? "Solved!" : "Game Over"}
-                </span>
-                <span className="text-sm font-semibold text-white">
-                  {solution?.title || "Daily Dhun Complete"}
-                </span>
+            <div className="w-full bg-slate-900/95 border border-slate-700/80 rounded-2xl p-4 sm:p-5 flex flex-col gap-4 shadow-xl backdrop-blur-md animate-guess-pop">
+              {/* Header Status */}
+              <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                <div className="flex items-center gap-2.5">
+                  <span className="text-2xl">{status === "WON" ? "🎉" : "💔"}</span>
+                  <div className="flex flex-col text-left">
+                    <span
+                      className={`text-xs font-mono font-bold tracking-wider uppercase ${
+                        status === "WON" ? "text-emerald-400" : "text-rose-400"
+                      }`}
+                    >
+                      {status === "WON" ? "Shabaash! You Won!" : "Game Over"}
+                    </span>
+                    <span className="text-xs text-slate-400">
+                      {status === "WON"
+                        ? `Guessed in ${attemptsUsed} of 6 attempts`
+                        : "You used all 6 attempts"}
+                    </span>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setIsGameOverOpen(true)}
+                  className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-amber-400 border border-amber-500/30 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <span>📋</span>
+                  <span>Share</span>
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={() => setIsGameOverOpen(true)}
-                className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs rounded-lg transition-transform active:scale-95 cursor-pointer"
-              >
-                View Summary
-              </button>
+
+              {/* Revealed Song Card */}
+              {solution && (
+                <div className="w-full bg-slate-950/70 border border-slate-800 rounded-xl p-3 flex flex-col text-left gap-1">
+                  <span className="text-[10px] uppercase font-mono tracking-wider text-amber-500/90 font-semibold">
+                    {gameMode === "DAILY" ? "Today's Song" : "Practice Song"}
+                  </span>
+                  <h3 className="text-base font-bold text-white truncate">
+                    {solution.title}
+                  </h3>
+                  <p className="text-xs text-slate-300 truncate">
+                    {solution.artists?.join(", ")}
+                    {solution.movieOrAlbum ? ` • ${solution.movieOrAlbum}` : ""}
+                  </p>
+
+                  {/* Quick external streaming links */}
+                  <div className="flex items-center gap-2 pt-2">
+                    <a
+                      href={`https://open.spotify.com/search/${encodeURIComponent(
+                        `${solution.title} ${solution.artists?.join(" ") || ""}`
+                      )}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-2.5 py-1 bg-[#1DB954]/15 hover:bg-[#1DB954]/25 text-[#1DB954] border border-[#1DB954]/40 rounded-md text-[11px] font-semibold flex items-center gap-1 transition-colors"
+                    >
+                      <span>Spotify</span> ↗
+                    </a>
+                    <a
+                      href={`https://www.youtube.com/results?search_query=${encodeURIComponent(
+                        `${solution.title} ${solution.artists?.join(" ") || ""} song`
+                      )}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-2.5 py-1 bg-[#FF0000]/15 hover:bg-[#FF0000]/25 text-rose-400 border border-rose-500/40 rounded-md text-[11px] font-semibold flex items-center gap-1 transition-colors"
+                    >
+                      <span>YouTube</span> ↗
+                    </a>
+                  </div>
+                </div>
+              )}
+
+              {/* Bottom Actions based on Mode */}
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-2.5 pt-1">
+                {gameMode === "DAILY" ? (
+                  <>
+                    <div className="flex items-center gap-2 text-xs text-slate-400">
+                      <span>Next Daily Dhun:</span>
+                      <span className="font-mono font-bold text-amber-400">{timeLeft || "--:--:--"}</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleSelectMode("PRACTICE")}
+                      className="w-full sm:w-auto px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-bold text-xs rounded-xl transition-transform active:scale-95 cursor-pointer shadow-md"
+                    >
+                      🎯 Play Unlimited Practice
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleNewPracticeSong}
+                    disabled={isLoadingAudio}
+                    className="w-full py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-bold text-xs rounded-xl transition-transform active:scale-95 cursor-pointer shadow-md flex items-center justify-center gap-1.5"
+                  >
+                    <span>🎲</span>
+                    <span>Play Another Practice Song</span>
+                  </button>
+                )}
+              </div>
             </div>
           )}
         </div>
@@ -554,7 +726,7 @@ export default function DhunPage() {
         challengeDate={challengeDate}
         mode={gameMode}
         onPlayNextPractice={handleNewPracticeSong}
-        onClose={() => setIsGameOverOpen(false)}
+        onClose={handleCloseGameOver}
         onOpenStats={() => {
           setIsGameOverOpen(false);
           setIsStatsOpen(true);
