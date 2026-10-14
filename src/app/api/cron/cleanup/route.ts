@@ -1,23 +1,42 @@
 import { NextRequest, NextResponse } from 'next/server';
+import crypto from 'crypto';
 import { cleanupOldSessions } from '@/services/cleanupService';
+
+function timingSafeCheck(incoming: string, expected: string): boolean {
+  const incBuf = Buffer.from(incoming, 'utf-8');
+  const expBuf = Buffer.from(expected, 'utf-8');
+  if (incBuf.length !== expBuf.length) {
+    return false;
+  }
+  return crypto.timingSafeEqual(incBuf, expBuf);
+}
 
 export async function GET(req: NextRequest) {
   try {
-    // 1. Authorize cron trigger via CRON_SECRET header or query param
-    const authHeader = req.headers.get('authorization');
     const cronSecret = process.env.CRON_SECRET;
+    const authHeader = req.headers.get('authorization');
+    const incomingBearer = authHeader?.startsWith('Bearer ') ? authHeader.slice(7).trim() : null;
+    const incomingKey = req.nextUrl.searchParams.get('key');
+    const providedSecret = incomingBearer || incomingKey;
 
-    if (cronSecret) {
-      const isAuthorized =
-        authHeader === `Bearer ${cronSecret}` ||
-        req.nextUrl.searchParams.get('key') === cronSecret;
+    // In production or when CRON_SECRET is configured, strictly enforce authorization
+    if (process.env.NODE_ENV === 'production' || cronSecret) {
+      if (!cronSecret) {
+        return NextResponse.json(
+          { error: 'Server misconfiguration: CRON_SECRET is required in production' },
+          { status: 500 }
+        );
+      }
 
-      if (!isAuthorized) {
-        return NextResponse.json({ error: 'Unauthorized cron trigger' }, { status: 401 });
+      if (!providedSecret || !timingSafeCheck(providedSecret, cronSecret)) {
+        return NextResponse.json(
+          { error: 'Unauthorized: Invalid or missing CRON_SECRET authorization' },
+          { status: 401 }
+        );
       }
     }
 
-    // 2. Execute 30-day session retention cleanup
+    // Execute 30-day session retention cleanup
     const result = await cleanupOldSessions(30);
 
     return NextResponse.json({
