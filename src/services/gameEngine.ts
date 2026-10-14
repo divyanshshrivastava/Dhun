@@ -158,6 +158,10 @@ export class GameEngine {
     })));
   }
 
+  getCatalogSong(songId: string): CatalogSongItem | undefined {
+    return this.catalog.find(s => s.id === songId);
+  }
+
   // Starts or resumes a Daily Challenge session backed by PostgreSQL
   async getOrCreateDailySession(guestId: string, customDate?: string): Promise<ClientSessionResponse> {
     const db = await getDb();
@@ -169,7 +173,31 @@ export class GameEngine {
       .from(schema.dailyChallenges)
       .where(eq(schema.dailyChallenges.challenge_date, challengeDate));
 
-    if (!dailyRecord) {
+    const overrideId = process.env.DHUN_DAILY_OVERRIDE_SONG_ID;
+    if (overrideId) {
+      const targetSong = this.catalog.find(
+        s => s.id === overrideId || s.title.toLowerCase() === overrideId.toLowerCase()
+      );
+      if (targetSong) {
+        if (!dailyRecord) {
+          const inserted = await db
+            .insert(schema.dailyChallenges)
+            .values({
+              challenge_date: challengeDate,
+              song_id: targetSong.id,
+              published: true,
+            })
+            .returning();
+          dailyRecord = inserted[0];
+        } else if (dailyRecord.song_id !== targetSong.id) {
+          await db
+            .update(schema.dailyChallenges)
+            .set({ song_id: targetSong.id })
+            .where(eq(schema.dailyChallenges.id, dailyRecord.id));
+          dailyRecord.song_id = targetSong.id;
+        }
+      }
+    } else if (!dailyRecord) {
       const dailySong = resolveDailySong(challengeDate, this.catalog);
       const inserted = await db
         .insert(schema.dailyChallenges)
@@ -203,13 +231,19 @@ export class GameEngine {
       );
 
     if (existingSession) {
-      const previousGuesses = await db
-        .select()
-        .from(schema.guesses)
-        .where(eq(schema.guesses.session_id, existingSession.id))
-        .orderBy(schema.guesses.attempt_index);
+      if (existingSession.song_id !== dailyRecord.song_id) {
+        // Daily challenge song was updated (e.g. custom test song override) -> start fresh session
+        await db.delete(schema.guesses).where(eq(schema.guesses.session_id, existingSession.id));
+        await db.delete(schema.gameSessions).where(eq(schema.gameSessions.id, existingSession.id));
+      } else {
+        const previousGuesses = await db
+          .select()
+          .from(schema.guesses)
+          .where(eq(schema.guesses.session_id, existingSession.id))
+          .orderBy(schema.guesses.attempt_index);
 
-      return this.formatSessionResponse(existingSession, previousGuesses, challengeDate);
+        return this.formatSessionResponse(existingSession, previousGuesses, challengeDate);
+      }
     }
 
     // 3. Create fresh session in PostgreSQL

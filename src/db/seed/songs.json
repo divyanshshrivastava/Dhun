@@ -443,6 +443,10 @@
     {
       "id": "e855810d-bf1d-41d8-85b1-470bbf8af0b1",
       "canonical_title": "Pasoori"
+    },
+    {
+      "id": "e0a0a000-0000-4000-8000-000000000001",
+      "canonical_title": "Dil Ke Saaz"
     }
   ],
   "songs": [
@@ -3308,6 +3312,29 @@
         "Indie Pop"
       ],
       "difficulty": "easy"
+    },
+    {
+      "id": "e0a0a000-0000-4000-8000-000000000002",
+      "work_id": "e0a0a000-0000-4000-8000-000000000001",
+      "title": "Dil Ke Saaz",
+      "normalized_title": "dil ke saaz",
+      "aliases": [
+        "dil ke saaz",
+        "dks",
+        "dil ke saz",
+        "dil ke saaz original"
+      ],
+      "artists": [
+        "User Original"
+      ],
+      "movie_or_album": "Dhun Test Track",
+      "language": "hindi",
+      "era": "2020s",
+      "genres": [
+        "Indie Pop",
+        "Original"
+      ],
+      "difficulty": "medium"
     }
   ]
 }

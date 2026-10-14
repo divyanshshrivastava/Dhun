@@ -13,10 +13,22 @@ const execFileAsync = promisify(execFile);
 
 // Resolve ffmpeg binary from ffmpeg-static or fallback to system PATH
 function getFfmpegBinaryPath(): string {
+  if (process.env.FFMPEG_PATH && fs.existsSync(process.env.FFMPEG_PATH)) {
+    return process.env.FFMPEG_PATH;
+  }
+  const directPath = path.join(
+    process.cwd(),
+    'node_modules',
+    'ffmpeg-static',
+    process.platform === 'win32' ? 'ffmpeg.exe' : 'ffmpeg'
+  );
+  if (fs.existsSync(directPath)) {
+    return directPath;
+  }
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const staticBin = require('ffmpeg-static');
-    if (staticBin && fs.existsSync(staticBin)) {
+    if (staticBin && typeof staticBin === 'string' && fs.existsSync(staticBin)) {
       return staticBin;
     }
   } catch {

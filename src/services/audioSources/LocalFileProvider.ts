@@ -49,9 +49,9 @@ export class LocalFileProvider implements AudioSourceProvider {
 
       for (const candidateKey of searchKeys) {
         for (const ext of candidateExtensions) {
-          const filePath = path.join(searchDir, `${candidateKey}${ext}`);
-          if (fs.existsSync(filePath)) {
-            const buffer = fs.readFileSync(filePath);
+          const filePath = path.join(/*turbopackIgnore: true*/ searchDir, `${candidateKey}${ext}`);
+          if (fs.existsSync(/*turbopackIgnore: true*/ filePath)) {
+            const buffer = fs.readFileSync(/*turbopackIgnore: true*/ filePath);
             return {
               audioBuffer: buffer,
               mimeType: this.determineMimeType(filePath),

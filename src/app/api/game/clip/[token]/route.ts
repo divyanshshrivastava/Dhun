@@ -5,9 +5,11 @@ import { getRateLimiter } from '@/lib/security/RateLimiter';
 import { getClipStorage } from '@/services/storage/LocalClipStorage';
 import { generateOpaqueClipKey, AudioCutterService } from '@/services/audioCutter';
 import { SyntheticToneProvider } from '@/services/audioSources/SyntheticToneProvider';
+import { LocalFileProvider } from '@/services/audioSources/LocalFileProvider';
 
 const audioCutter = new AudioCutterService();
 const syntheticProvider = new SyntheticToneProvider();
+const localProvider = new LocalFileProvider();
 
 export async function GET(
   req: NextRequest,
@@ -81,15 +83,32 @@ export async function GET(
     const storageKey = generateOpaqueClipKey(session.songId, attemptIndex, format);
     const clipStorage = getClipStorage();
 
-    // 5. If clip is missing from storage, generate on-demand via synthetic tone master
+    // 5. If clip is missing from storage, generate on-demand
     const clipExists = await clipStorage.hasClip(storageKey);
     if (!clipExists) {
-      const syntheticMaster = await syntheticProvider.fetchTrack({
-        id: session.songId,
-        title: session.songId,
-      });
-      const masterBuffer = syntheticMaster.audioBuffer;
-      const slices = await audioCutter.sliceTrack(masterBuffer, 'wav', {
+      let masterBuffer: Buffer | null = null;
+      let inputExt = 'wav';
+
+      // 1. Check if a real audio master exists in audio-masters/
+      try {
+        const songItem = engine.getCatalogSong(session.songId);
+        const localMaster = await localProvider.fetchTrack({
+          id: session.songId,
+          title: songItem?.title || session.songId,
+        });
+        masterBuffer = localMaster.audioBuffer;
+        inputExt = localMaster.mimeType.includes('mpeg') ? 'mp3' : 'wav';
+      } catch {
+        // 2. Fall back to procedural synthetic Indian tone provider
+        const syntheticMaster = await syntheticProvider.fetchTrack({
+          id: session.songId,
+          title: session.songId,
+        });
+        masterBuffer = syntheticMaster.audioBuffer;
+        inputExt = 'wav';
+      }
+
+      const slices = await audioCutter.sliceTrack(masterBuffer, inputExt, {
         songId: session.songId,
       });
 

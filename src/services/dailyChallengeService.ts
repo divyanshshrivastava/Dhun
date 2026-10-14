@@ -33,9 +33,12 @@ export function resolveDailySong(
     throw new Error('Cannot resolve daily challenge: song catalog is empty');
   }
 
-  // 1. If explicitly scheduled in the database, use that song
-  if (explicitDbSongId) {
-    const matched = catalog.find(s => s.id === explicitDbSongId);
+  // 1. Environment variable override or explicit scheduled song
+  const overrideId = process.env.DHUN_DAILY_OVERRIDE_SONG_ID || explicitDbSongId;
+  if (overrideId) {
+    const matched = catalog.find(
+      s => s.id === overrideId || s.title.toLowerCase() === overrideId.toLowerCase()
+    );
     if (matched) return matched;
   }
 
