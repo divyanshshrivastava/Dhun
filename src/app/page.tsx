@@ -120,30 +120,44 @@ export default function DhunPage() {
 
         const data = await res.json();
         setSessionId(data.sessionId);
+        
+        // Cache and restore sessionToken for session persistence across reloads
         if (data.sessionToken) {
           setSessionToken(data.sessionToken);
+          localStorage.setItem(`dhun_session_token_${data.sessionId}`, data.sessionToken);
+        } else {
+          const savedToken = localStorage.getItem(`dhun_session_token_${data.sessionId}`);
+          if (savedToken) {
+            setSessionToken(savedToken);
+          }
         }
+
         setChallengeDate(data.challengeDate || "");
         setAttemptsUsed(data.attemptsUsed);
         setStatus(data.status);
         setGuesses(data.previousGuesses || []);
 
-        if (data.solution) {
-          setSolution(data.solution);
+        const solutionPayload = data.solution || data.answer;
+        if (solutionPayload) {
+          setSolution(solutionPayload);
           setIsGameOverOpen(true);
         }
 
         // Configure player token refresh callback
         if (playerRef.current) {
           const sId = data.sessionId;
-          const sToken = data.sessionToken || "";
           playerRef.current.setTokenRefreshCallback(async (attemptIndex: number) => {
+            const currentSavedToken =
+              sessionToken ||
+              data.sessionToken ||
+              localStorage.getItem(`dhun_session_token_${sId}`) ||
+              "";
             const refreshRes = await fetch("/api/game/clip/refresh", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
                 sessionId: sId,
-                sessionToken: sToken,
+                sessionToken: currentSavedToken,
                 attemptIndex,
               }),
             });
@@ -156,10 +170,12 @@ export default function DhunPage() {
         }
 
         // Fetch and decode initial clip immediately upon URL arrival
-        if (data.currentClip?.clipStreamUrl && playerRef.current) {
+        const activeClip = data.currentClip || data.nextClip;
+        if (activeClip?.clipStreamUrl && playerRef.current) {
           await playerRef.current.loadAndDecodeClip(
-            data.currentClip.clipStreamUrl,
-            data.currentClip.attemptIndex
+            activeClip.clipStreamUrl,
+            activeClip.attemptIndex,
+            activeClip.durationMs
           );
           setAudioError(null);
         }
@@ -171,7 +187,7 @@ export default function DhunPage() {
     };
 
     initSession();
-  }, [guestId, fetchStats]);
+  }, [guestId, fetchStats, sessionToken]);
 
   // Handle Play/Pause
   const handlePlayAudio = async () => {
@@ -244,18 +260,33 @@ export default function DhunPage() {
       const data = await res.json();
       setAttemptsUsed(data.attemptsUsed);
       setStatus(data.status);
-      setGuesses(data.previousGuesses || []);
 
-      if (data.solution) {
-        setSolution(data.solution);
+      if (data.allGuesses) {
+        setGuesses(data.allGuesses);
+      } else if (data.previousGuesses) {
+        setGuesses(data.previousGuesses);
+      } else if (data.guessResult) {
+        setGuesses((prev) => {
+          const filtered = prev.filter((g) => g.attemptIndex !== data.guessResult.attemptIndex);
+          return [...filtered, data.guessResult];
+        });
+      }
+
+      const solutionPayload = data.solution || data.answer;
+      if (solutionPayload) {
+        setSolution(solutionPayload);
         setIsGameOverOpen(true);
         fetchStats(guestId);
-      } else if (data.currentClip && playerRef.current) {
-        // Pre-fetch and decode next clip immediately
-        await playerRef.current.loadAndDecodeClip(
-          data.currentClip.clipStreamUrl,
-          data.currentClip.attemptIndex
-        );
+      } else {
+        const nextClip = data.nextClip || data.currentClip;
+        if (nextClip && playerRef.current) {
+          // Pre-fetch and decode next clip immediately
+          await playerRef.current.loadAndDecodeClip(
+            nextClip.clipStreamUrl,
+            nextClip.attemptIndex,
+            nextClip.durationMs
+          );
+        }
       }
     } catch (err: any) {
       setAudioError(err.message || "Error submitting guess");
@@ -287,17 +318,32 @@ export default function DhunPage() {
       const data = await res.json();
       setAttemptsUsed(data.attemptsUsed);
       setStatus(data.status);
-      setGuesses(data.previousGuesses || []);
 
-      if (data.solution) {
-        setSolution(data.solution);
+      if (data.allGuesses) {
+        setGuesses(data.allGuesses);
+      } else if (data.previousGuesses) {
+        setGuesses(data.previousGuesses);
+      } else if (data.guessResult) {
+        setGuesses((prev) => {
+          const filtered = prev.filter((g) => g.attemptIndex !== data.guessResult.attemptIndex);
+          return [...filtered, data.guessResult];
+        });
+      }
+
+      const solutionPayload = data.solution || data.answer;
+      if (solutionPayload) {
+        setSolution(solutionPayload);
         setIsGameOverOpen(true);
         fetchStats(guestId);
-      } else if (data.currentClip && playerRef.current) {
-        await playerRef.current.loadAndDecodeClip(
-          data.currentClip.clipStreamUrl,
-          data.currentClip.attemptIndex
-        );
+      } else {
+        const nextClip = data.nextClip || data.currentClip;
+        if (nextClip && playerRef.current) {
+          await playerRef.current.loadAndDecodeClip(
+            nextClip.clipStreamUrl,
+            nextClip.attemptIndex,
+            nextClip.durationMs
+          );
+        }
       }
     } catch (err: any) {
       setAudioError(err.message || "Error skipping attempt");

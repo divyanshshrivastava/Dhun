@@ -90,6 +90,11 @@ export interface SubmitGuessResponse {
     durationMs: number;
     clipStreamUrl: string;
   };
+  currentClip?: {
+    attemptIndex: number;
+    durationMs: number;
+    clipStreamUrl: string;
+  };
   answer?: {
     title: string;
     artists: string[];
@@ -99,6 +104,21 @@ export interface SubmitGuessResponse {
     spotifyUrl?: string;
     youtubeUrl?: string;
   };
+  solution?: {
+    title: string;
+    artists: string[];
+    movieOrAlbum?: string;
+    language: string;
+    era: string;
+    spotifyUrl?: string;
+    youtubeUrl?: string;
+  };
+  allGuesses?: Array<{
+    attemptIndex: number;
+    action: 'GUESS' | 'SKIP';
+    isCorrect: boolean;
+    guessedSongTitle?: string;
+  }>;
   shareGrid?: string;
 }
 
@@ -400,7 +420,15 @@ export class GameEngine {
           guessedSongArtists: guessedTrack?.artists,
         },
         nextClip,
+        currentClip: nextClip,
         answer: answerPayload,
+        solution: answerPayload,
+        allGuesses: allGuesses.map((g: any) => ({
+          attemptIndex: g.attempt_index,
+          action: g.guess_type === 'SONG_GUESS' ? 'GUESS' : 'SKIP',
+          isCorrect: g.is_correct,
+          guessedSongTitle: g.raw_guess_text,
+        })),
         shareGrid: newStatus !== 'IN_PROGRESS' ? this.buildShareGrid(session.mode, allGuesses, session.max_attempts) : undefined,
       };
     });
@@ -444,6 +472,8 @@ export class GameEngine {
         .where(eq(schema.guesses.session_id, sessionId))
         .orderBy(schema.guesses.attempt_index);
 
+      const answerPayload = this.buildAnswerPayload(solutionTrack);
+
       return {
         correct: false,
         gameOver: true,
@@ -454,7 +484,14 @@ export class GameEngine {
           action: 'SKIP',
           isCorrect: false,
         },
-        answer: this.buildAnswerPayload(solutionTrack),
+        answer: answerPayload,
+        solution: answerPayload,
+        allGuesses: allGuesses.map((g: any) => ({
+          attemptIndex: g.attempt_index,
+          action: g.guess_type === 'SONG_GUESS' ? 'GUESS' : 'SKIP',
+          isCorrect: g.is_correct,
+          guessedSongTitle: g.raw_guess_text,
+        })),
         shareGrid: this.buildShareGrid(session.mode, allGuesses, session.max_attempts),
       };
     });

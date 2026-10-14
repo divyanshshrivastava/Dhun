@@ -133,6 +133,9 @@ export class DhunAudioPlayer {
 
       // Decode PCM WAV or AAC audio data asynchronously into an in-memory AudioBuffer
       this.currentBuffer = await ctx.decodeAudioData(arrayBuffer);
+      if (this.currentBuffer.duration > 0) {
+        this.clipDurationMs = Math.round(this.currentBuffer.duration * 1000);
+      }
       this.setStatus('ready');
       return true;
     } catch (err: unknown) {
