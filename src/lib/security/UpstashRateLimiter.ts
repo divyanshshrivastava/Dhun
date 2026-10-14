@@ -2,7 +2,7 @@
 // Uses atomic Redis pipelines to minimize command consumption (< 500k free tier limit)
 // Only 1 REST request per rate-limit check
 
-import { RateLimiter, RateLimitResult } from './RateLimiter';
+import { RateLimiter, RateLimitResult, InMemoryRateLimiter } from './RateLimiter';
 
 export class UpstashRateLimiter implements RateLimiter {
   readonly limiterType = 'upstash_redis_rest';
@@ -10,6 +10,7 @@ export class UpstashRateLimiter implements RateLimiter {
   private readonly restToken: string;
   private readonly maxRequests: number;
   private readonly windowSeconds: number;
+  private readonly inMemoryFallback: InMemoryRateLimiter;
 
   constructor(
     restUrl: string = process.env.UPSTASH_REDIS_REST_URL || '',
@@ -21,6 +22,7 @@ export class UpstashRateLimiter implements RateLimiter {
     this.restToken = restToken;
     this.maxRequests = maxRequests;
     this.windowSeconds = windowSeconds;
+    this.inMemoryFallback = new InMemoryRateLimiter(maxRequests, windowSeconds);
   }
 
   async check(identifierKey: string): Promise<RateLimitResult> {
@@ -46,8 +48,10 @@ export class UpstashRateLimiter implements RateLimiter {
       });
 
       if (!res.ok) {
-        console.warn(`[Upstash] Rate limiter HTTP error ${res.status}, failing open to protect player experience.`);
-        return { success: true, limit: this.maxRequests, remaining: 1, resetSeconds: 0 };
+        console.warn(
+          `[Upstash] Rate limiter HTTP error ${res.status} (quota or service error). Failing over to in-memory fallback rate limiter to protect player experience.`
+        );
+        return this.inMemoryFallback.check(identifierKey);
       }
 
       const results = await res.json();
@@ -71,14 +75,10 @@ export class UpstashRateLimiter implements RateLimiter {
         resetSeconds: effectiveTtl,
       };
     } catch (err: any) {
-      // Fail-open strategy: if Upstash has network glitch, don't break the user's game
-      console.warn('[Upstash] Rate limiter connection failure (failing open):', err.message);
-      return {
-        success: true,
-        limit: this.maxRequests,
-        remaining: 1,
-        resetSeconds: 0,
-      };
+      console.warn(
+        `[Upstash] Rate limiter connection failure (${err.message}). Failing over to in-memory fallback rate limiter to protect player experience.`
+      );
+      return this.inMemoryFallback.check(identifierKey);
     }
   }
 }

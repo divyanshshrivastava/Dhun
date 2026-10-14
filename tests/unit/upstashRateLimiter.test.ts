@@ -57,13 +57,42 @@ describe('UpstashRateLimiter - Ultra-low command consumption rate limiter', () =
     expect(res.resetSeconds).toBe(42);
   });
 
-  it('fails open when Upstash network request times out or errors', async () => {
+  it('fails open to in-memory fallback when Upstash network request times out or errors', async () => {
     global.fetch = vi.fn().mockRejectedValue(new Error('Network connection timeout'));
 
-    const limiter = new UpstashRateLimiter('https://mock-redis.upstash.io', 'mock-token', 15, 60);
-    const res = await limiter.check('guest_123');
+    const limiter = new UpstashRateLimiter('https://mock-redis.upstash.io', 'mock-token', 3, 60);
+    
+    // First 3 requests should pass via in-memory fallback
+    const res1 = await limiter.check('guest_fallback_1');
+    expect(res1.success).toBe(true);
 
-    // Fail open protects players from game disruption
-    expect(res.success).toBe(true);
+    const res2 = await limiter.check('guest_fallback_1');
+    expect(res2.success).toBe(true);
+
+    const res3 = await limiter.check('guest_fallback_1');
+    expect(res3.success).toBe(true);
+
+    // 4th request exceeds in-memory limit
+    const res4 = await limiter.check('guest_fallback_1');
+    expect(res4.success).toBe(false);
+  });
+
+  it('fails open to in-memory fallback when Upstash returns HTTP 429 quota exceeded', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 429,
+      statusText: 'Too Many Requests (Daily quota reached)',
+    });
+
+    const limiter = new UpstashRateLimiter('https://mock-redis.upstash.io', 'mock-token', 2, 60);
+
+    const res1 = await limiter.check('guest_quota_1');
+    expect(res1.success).toBe(true);
+
+    const res2 = await limiter.check('guest_quota_1');
+    expect(res2.success).toBe(true);
+
+    const res3 = await limiter.check('guest_quota_1');
+    expect(res3.success).toBe(false);
   });
 });
