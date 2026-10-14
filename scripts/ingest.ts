@@ -11,6 +11,7 @@ import { SyntheticToneProvider } from '../src/services/audioSources/SyntheticTon
 import { LocalFileProvider } from '../src/services/audioSources/LocalFileProvider';
 import { AppleMusicPreviewProvider } from '../src/services/audioSources/AppleMusicPreviewProvider';
 import { AudioSourceProvider } from '../src/services/audioSources/AudioSourceProvider';
+import { getClipStorage } from '../src/services/storage/LocalClipStorage';
 
 interface SongCatalogItem {
   id: string;
@@ -95,13 +96,29 @@ async function runCliIngestion() {
 
       console.log(`  Source fetched: ${sourceResult.mimeType} (${Math.round(sourceResult.audioBuffer.length / 1024)} KB)`);
 
-      const ext = sourceResult.mimeType.includes('wav') ? 'wav' : 'm4a';
+      let ext = 'wav';
+      if (sourceResult.mimeType.includes('mpeg')) {
+        ext = 'mp3';
+      } else if (sourceResult.mimeType.includes('mp4') || sourceResult.mimeType.includes('m4a')) {
+        ext = 'm4a';
+      } else if (sourceResult.mimeType.includes('flac')) {
+        ext = 'flac';
+      }
+
       const slicedClips = await cutter.sliceTrack(sourceResult.audioBuffer, ext, {
         songId: track.id,
         outputDirectory: outputStorageDir,
       });
 
-      console.log(`  Successfully sliced 6 cumulative clips:`);
+      // Save clips into active ClipStorage (R2, Supabase, or Local Disk)
+      const clipStorage = getClipStorage();
+      console.log(`  Uploading clips to storage provider: [${clipStorage.storageName}]`);
+      for (const clip of slicedClips) {
+        const mime = clip.format === 'wav' ? 'audio/wav' : 'audio/mp4';
+        await clipStorage.saveClip(clip.storageKey, clip.buffer, mime);
+      }
+
+      console.log(`  Successfully sliced & saved 6 cumulative clips (-16 LUFS):`);
       for (const clip of slicedClips) {
         console.log(`    - Attempt ${clip.attemptIndex} (${clip.durationMs}ms, ${clip.format}): ${clip.storageKey} [${clip.fileSizeBytes} bytes]`);
       }
