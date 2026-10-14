@@ -16,7 +16,8 @@
     "ingest:report": "tsx scripts/catalog_status_report.ts",
     "ingest:masters": "tsx scripts/ingest.ts --all-masters",
     "ingest:batch": "tsx scripts/ingest.ts --all",
-    "ingest": "tsx scripts/ingest.ts"
+    "ingest": "tsx scripts/ingest.ts",
+    "check:repo": "tsx scripts/check_repo_hygiene.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1151.0",
