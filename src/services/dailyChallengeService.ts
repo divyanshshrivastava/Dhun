@@ -5,12 +5,13 @@
 import crypto from 'crypto';
 import { getCurrentIstDateString } from '../lib/istDate';
 import { CatalogSongItem } from '../lib/search/catalogSearch';
+import { getServerSecret } from '../config/env';
 
 // Computes a deterministic integer index from the date string and server secret salt
 export function computeDailyFallbackIndex(
   dateString: string,
   totalAvailableSongs: number,
-  serverSecret = process.env.DHUN_SERVER_SECRET || 'dhun_server_secret_fallback_salt_2026'
+  serverSecret = getServerSecret()
 ): number {
   if (totalAvailableSongs <= 0) return 0;
   const hash = crypto

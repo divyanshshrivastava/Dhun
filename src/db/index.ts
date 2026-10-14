@@ -14,7 +14,22 @@ let initPromise: Promise<any> | null = null;
 
 export function isExternalPostgres(): boolean {
   const url = process.env.DATABASE_URL;
-  return !!url && !url.includes('localhost:5432/dhun_db');
+  return !!url;
+}
+
+// Retries a database query once to gracefully absorb Neon cold-starts (compute wake-up from sleep)
+export async function executeWithRetry<T>(queryFn: () => Promise<T>, maxRetries = 1): Promise<T> {
+  let attempt = 0;
+  while (true) {
+    try {
+      return await queryFn();
+    } catch (err: any) {
+      attempt++;
+      if (attempt > maxRetries) throw err;
+      console.warn(`[Neon / Postgres] Connection error on attempt ${attempt}, retrying after compute cold-start...`, err.message);
+      await new Promise(r => setTimeout(r, 1500));
+    }
+  }
 }
 
 export async function getDb(): Promise<any> {
@@ -22,13 +37,24 @@ export async function getDb(): Promise<any> {
   if (initPromise) return initPromise;
 
   initPromise = (async () => {
-    // 1. If explicit DATABASE_URL is configured (e.g. AWS RDS / Supabase / local Docker Postgres)
+    // In production, strictly enforce external PostgreSQL via DATABASE_URL
+    if (process.env.NODE_ENV === 'production' && !process.env.DATABASE_URL) {
+      throw new Error(
+        '[FATAL] Missing required environment variable: DATABASE_URL in production. PGlite in-memory fallback is disabled outside development/test.'
+      );
+    }
+
+    // 1. If explicit DATABASE_URL is configured (e.g. Neon pooled, Supabase, local Docker Postgres)
     if (isExternalPostgres()) {
+      const isNeon = (process.env.DATABASE_URL || '').includes('neon.tech');
       const pool = new Pool({
         connectionString: process.env.DATABASE_URL,
         max: 10,
         idleTimeoutMillis: 30000,
-        connectionTimeoutMillis: 5000,
+        connectionTimeoutMillis: isNeon ? 15000 : 10000, // Generous 15s timeout for Neon cold-starts
+        ssl: (process.env.DATABASE_URL || '').includes('sslmode=require') || isNeon
+          ? { rejectUnauthorized: false }
+          : undefined,
       });
 
       pool.on('error', (err) => {
@@ -39,7 +65,7 @@ export async function getDb(): Promise<any> {
       return cachedDb;
     }
 
-    // 2. Default in-process PostgreSQL 18.6 engine
+    // 2. Default in-process PostgreSQL 18.6 engine (dev & test only)
     const pglite = new PGlite();
 
     // Apply migration SQL DDL

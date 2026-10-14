@@ -8,6 +8,7 @@ import crypto from 'crypto';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
 import { GAME_CONFIG, ClipAttemptConfig } from '../config/gameConfig';
+import { getServerSecret } from '../config/env';
 
 const execFileAsync = promisify(execFile);
 
@@ -57,7 +58,7 @@ export function generateOpaqueClipKey(
   songId: string,
   attemptIndex: number,
   format: string,
-  secret = process.env.DHUN_SERVER_SECRET || 'dhun_default_secret_salt_2026'
+  secret = getServerSecret()
 ): string {
   const hash = crypto
     .createHmac('sha256', secret)
