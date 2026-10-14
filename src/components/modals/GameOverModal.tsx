@@ -19,8 +19,10 @@ export interface GameOverModalProps {
   guesses: GuessRecord[];
   solution?: SolutionDetails;
   challengeDate?: string;
+  mode?: "DAILY" | "PRACTICE";
   onClose: () => void;
   onOpenStats?: () => void;
+  onPlayNextPractice?: () => void;
 }
 
 export const GameOverModal: React.FC<GameOverModalProps> = ({
@@ -30,8 +32,10 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
   guesses,
   solution,
   challengeDate,
+  mode = "DAILY",
   onClose,
   onOpenStats,
+  onPlayNextPractice,
 }) => {
   const [copied, setCopied] = useState(false);
   const [timeLeft, setTimeLeft] = useState("");
@@ -206,11 +210,22 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
             </button>
           )}
 
-          {/* Midnight Countdown */}
-          <div className="pt-2 border-t border-slate-800 flex items-center justify-between text-xs text-slate-400">
-            <span>Next Dhun in:</span>
-            <span className="font-mono font-bold text-amber-400">{timeLeft || "--:--:--"}</span>
-          </div>
+          {mode === "PRACTICE" && onPlayNextPractice ? (
+            <button
+              type="button"
+              onClick={onPlayNextPractice}
+              className="w-full h-11 bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/30 font-bold rounded-xl flex items-center justify-center gap-2 transition-colors cursor-pointer"
+            >
+              <span>🎲</span>
+              <span>Play Next Practice Song</span>
+            </button>
+          ) : (
+            /* Midnight Countdown */
+            <div className="pt-2 border-t border-slate-800 flex items-center justify-between text-xs text-slate-400">
+              <span>Next Dhun in:</span>
+              <span className="font-mono font-bold text-amber-400">{timeLeft || "--:--:--"}</span>
+            </div>
+          )}
         </div>
       </div>
     </div>

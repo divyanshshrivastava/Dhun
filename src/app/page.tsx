@@ -9,6 +9,7 @@ import { AudioControls } from "../components/AudioControls";
 import { GameOverModal, SolutionDetails } from "../components/modals/GameOverModal";
 import { StatsModal, PlayerStatsData } from "../components/modals/StatsModal";
 import { HelpModal } from "../components/modals/HelpModal";
+import { PracticeModeSelector, PracticeFilters } from "../components/PracticeModeSelector";
 import { CatalogSongItem } from "../lib/search/catalogSearch";
 
 export default function DhunPage() {
@@ -99,19 +100,32 @@ export default function DhunPage() {
     }
   }, []);
 
-  // 2. Fetch or Resume Daily Game Session
-  useEffect(() => {
-    if (!guestId) return;
+  // Mode & Filter State
+  const [gameMode, setGameMode] = useState<"DAILY" | "PRACTICE">("DAILY");
+  const [practiceFilters, setPracticeFilters] = useState<PracticeFilters>({});
 
-    fetchStats(guestId);
-
-    const initSession = async () => {
+  // 2. Start or Resume Game Session (Daily or Practice)
+  const startSession = useCallback(
+    async (mode: "DAILY" | "PRACTICE", customFilters?: PracticeFilters) => {
+      if (!guestId) return;
       setIsLoadingAudio(true);
+      setAudioError(null);
+      setIsGameOverOpen(false);
+      setSolution(undefined);
+      setGuesses([]);
+      setAttemptsUsed(0);
+      setStatus("IN_PROGRESS");
+      setCurrentTime(0);
+
       try {
         const res = await fetch("/api/game/session", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ guestId, mode: "DAILY" }),
+          body: JSON.stringify({
+            guestId,
+            mode,
+            filters: mode === "PRACTICE" ? customFilters || practiceFilters : undefined,
+          }),
         });
 
         if (!res.ok) {
@@ -120,7 +134,7 @@ export default function DhunPage() {
 
         const data = await res.json();
         setSessionId(data.sessionId);
-        
+
         // Cache and restore sessionToken for session persistence across reloads
         if (data.sessionToken) {
           setSessionToken(data.sessionToken);
@@ -184,10 +198,33 @@ export default function DhunPage() {
       } finally {
         setIsLoadingAudio(false);
       }
-    };
+    },
+    [guestId, practiceFilters, sessionToken]
+  );
 
-    initSession();
-  }, [guestId, fetchStats, sessionToken]);
+  // Initial load on mount once guestId is ready
+  useEffect(() => {
+    if (guestId) {
+      fetchStats(guestId);
+      startSession("DAILY");
+    }
+  }, [guestId, fetchStats, startSession]);
+
+  const handleSelectMode = (mode: "DAILY" | "PRACTICE") => {
+    setGameMode(mode);
+    startSession(mode, practiceFilters);
+  };
+
+  const handleFilterChange = (newFilters: PracticeFilters) => {
+    setPracticeFilters(newFilters);
+    if (gameMode === "PRACTICE") {
+      startSession("PRACTICE", newFilters);
+    }
+  };
+
+  const handleNewPracticeSong = () => {
+    startSession("PRACTICE", practiceFilters);
+  };
 
   // Handle Play/Pause
   const handlePlayAudio = async () => {
@@ -420,6 +457,18 @@ export default function DhunPage() {
         </button>
       </header>
 
+      {/* Practice / Daily Mode Selector */}
+      <div className="w-full max-w-lg pt-3">
+        <PracticeModeSelector
+          currentMode={gameMode}
+          filters={practiceFilters}
+          isLoading={isLoadingAudio}
+          onSelectMode={handleSelectMode}
+          onFilterChange={handleFilterChange}
+          onNewPracticeSong={handleNewPracticeSong}
+        />
+      </div>
+
       {/* Main Game Interface Container */}
       <main className="w-full max-w-lg flex-1 flex flex-col items-center justify-between py-4 gap-4">
         {/* Attempt History List */}
@@ -503,6 +552,8 @@ export default function DhunPage() {
         guesses={guesses}
         solution={solution}
         challengeDate={challengeDate}
+        mode={gameMode}
+        onPlayNextPractice={handleNewPracticeSong}
         onClose={() => setIsGameOverOpen(false)}
         onOpenStats={() => {
           setIsGameOverOpen(false);
