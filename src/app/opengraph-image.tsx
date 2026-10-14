@@ -1,6 +1,5 @@
 import { ImageResponse } from 'next/og';
 
-export const runtime = 'edge';
 export const alt = 'Dhun (धुन) — Daily Indian Music Guessing Game';
 export const size = {
   width: 1200,

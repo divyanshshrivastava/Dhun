@@ -32,6 +32,7 @@ test.describe('Dhun Web Application - Full End-to-End Game Lifecycle', () => {
     // Wait for skip button to be ready
     const skipButton = page.locator('button:has-text("Skip")');
     await expect(skipButton).toBeVisible({ timeout: 10000 });
+    await expect(skipButton).toBeEnabled({ timeout: 10000 });
 
     // Click Skip (+0.4s)
     await skipButton.click();
