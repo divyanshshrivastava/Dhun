@@ -271,26 +271,34 @@ export class GameEngine {
           dailyRecord.song_id = targetSong.id;
         }
       }
-    } else if (!dailyRecord) {
+    } else if (!dailyRecord || (!overrideId && dailyRecord.song_id === 'e0a0a000-0000-4000-8000-000000000002')) {
       const candidateSongs = await this.getPlayableSongPool();
       const dailySong = resolveDailySong(challengeDate, candidateSongs);
-      const inserted = await db
-        .insert(schema.dailyChallenges)
-        .values({
-          challenge_date: challengeDate,
-          song_id: dailySong.id,
-          published: true,
-        })
-        .onConflictDoNothing()
-        .returning();
+      if (!dailyRecord) {
+        const inserted = await db
+          .insert(schema.dailyChallenges)
+          .values({
+            challenge_date: challengeDate,
+            song_id: dailySong.id,
+            published: true,
+          })
+          .onConflictDoNothing()
+          .returning();
 
-      if (inserted && inserted.length > 0) {
-        dailyRecord = inserted[0];
+        if (inserted && inserted.length > 0) {
+          dailyRecord = inserted[0];
+        } else {
+          [dailyRecord] = await db
+            .select()
+            .from(schema.dailyChallenges)
+            .where(eq(schema.dailyChallenges.challenge_date, challengeDate));
+        }
       } else {
-        [dailyRecord] = await db
-          .select()
-          .from(schema.dailyChallenges)
-          .where(eq(schema.dailyChallenges.challenge_date, challengeDate));
+        await db
+          .update(schema.dailyChallenges)
+          .set({ song_id: dailySong.id })
+          .where(eq(schema.dailyChallenges.id, dailyRecord.id));
+        dailyRecord.song_id = dailySong.id;
       }
     }
 
@@ -485,6 +493,7 @@ export class GameEngine {
 
       // 8. Prepare next clip or answer payload
       let nextClip: SubmitGuessResponse['nextClip'];
+      let currentClip: SubmitGuessResponse['currentClip'];
       let answerPayload: SubmitGuessResponse['answer'];
 
       if (newStatus === 'IN_PROGRESS') {
@@ -495,8 +504,18 @@ export class GameEngine {
           durationMs: nextDuration,
           clipStreamUrl: `/api/game/clip/${token}`,
         };
+        currentClip = nextClip;
       } else {
         answerPayload = this.buildAnswerPayload(solutionTrack);
+        // Completed: generate 15-second clip (attempt 5) so player can listen to the full song preview
+        const finalAttempt = 5;
+        const finalDuration = CLIP_DURATIONS_MS[finalAttempt];
+        const token = generateClipStreamToken(sessionId, finalAttempt, 300);
+        currentClip = {
+          attemptIndex: finalAttempt,
+          durationMs: finalDuration,
+          clipStreamUrl: `/api/game/clip/${token}`,
+        };
       }
 
       const allGuesses = await tx
@@ -518,7 +537,7 @@ export class GameEngine {
           guessedSongArtists: guessedTrack?.artists,
         },
         nextClip,
-        currentClip: nextClip,
+        currentClip,
         answer: answerPayload,
         solution: answerPayload,
         allGuesses: allGuesses.map((g: any) => ({
@@ -571,6 +590,14 @@ export class GameEngine {
         .orderBy(schema.guesses.attempt_index);
 
       const answerPayload = this.buildAnswerPayload(solutionTrack);
+      const finalAttempt = 5;
+      const finalDuration = CLIP_DURATIONS_MS[finalAttempt];
+      const finalToken = generateClipStreamToken(sessionId, finalAttempt, 300);
+      const finalClip = {
+        attemptIndex: finalAttempt,
+        durationMs: finalDuration,
+        clipStreamUrl: `/api/game/clip/${finalToken}`,
+      };
 
       return {
         correct: false,
@@ -584,6 +611,8 @@ export class GameEngine {
         },
         answer: answerPayload,
         solution: answerPayload,
+        nextClip: undefined,
+        currentClip: finalClip,
         allGuesses: allGuesses.map((g: any) => ({
           attemptIndex: g.attempt_index,
           action: g.guess_type === 'SONG_GUESS' ? 'GUESS' : 'SKIP',
@@ -750,6 +779,15 @@ export class GameEngine {
     } else {
       const solutionTrack = this.catalog.find(s => s.id === session.song_id)!;
       answerPayload = this.buildAnswerPayload(solutionTrack);
+      // When session is finished, provide full 15-second audio clip
+      const finalAttempt = 5;
+      const duration = CLIP_DURATIONS_MS[finalAttempt];
+      const clipToken = generateClipStreamToken(session.id, finalAttempt, 300);
+      currentClip = {
+        attemptIndex: finalAttempt,
+        durationMs: duration,
+        clipStreamUrl: `/api/game/clip/${clipToken}`,
+      };
     }
 
     return {

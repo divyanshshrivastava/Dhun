@@ -343,7 +343,7 @@ export default function DhunPage() {
         body: JSON.stringify({
           sessionId,
           sessionToken: activeToken,
-          attemptIndex: attemptsUsed,
+          attemptIndex: status !== "IN_PROGRESS" ? 5 : attemptsUsed,
         }),
       });
 
@@ -413,6 +413,15 @@ export default function DhunPage() {
         setSolution(solutionPayload);
         setIsGameOverOpen(true);
         fetchStats(guestId);
+        // Load the full 15-second audio snippet so player can celebrate and listen to the song!
+        const finalClip = data.nextClip || data.currentClip;
+        if (finalClip && playerRef.current) {
+          await playerRef.current.loadAndDecodeClip(
+            finalClip.clipStreamUrl,
+            finalClip.attemptIndex,
+            finalClip.durationMs
+          );
+        }
       } else {
         const nextClip = data.nextClip || data.currentClip;
         if (nextClip && playerRef.current) {
@@ -476,6 +485,15 @@ export default function DhunPage() {
         setSolution(solutionPayload);
         setIsGameOverOpen(true);
         fetchStats(guestId);
+        // Load full 15-second audio snippet upon game over
+        const finalClip = data.nextClip || data.currentClip;
+        if (finalClip && playerRef.current) {
+          await playerRef.current.loadAndDecodeClip(
+            finalClip.clipStreamUrl,
+            finalClip.attemptIndex,
+            finalClip.durationMs
+          );
+        }
       } else {
         const nextClip = data.nextClip || data.currentClip;
         if (nextClip && playerRef.current) {
@@ -521,6 +539,14 @@ export default function DhunPage() {
           setSolution(data.solution);
           setIsGameOverOpen(true);
           fetchStats(guestId);
+          const finalClip = data.nextClip || data.currentClip;
+          if (finalClip && playerRef.current) {
+            await playerRef.current.loadAndDecodeClip(
+              finalClip.clipStreamUrl,
+              finalClip.attemptIndex,
+              finalClip.durationMs
+            );
+          }
         }
       }
     } catch (err: any) {

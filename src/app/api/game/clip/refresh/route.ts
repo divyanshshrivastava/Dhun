@@ -61,20 +61,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized session token' }, { status: 401 });
     }
 
-    if (session.status !== 'IN_PROGRESS') {
-      return NextResponse.json(
-        { error: `Game session is already finished with status: ${session.status}` },
-        { status: 400 }
-      );
-    }
+    const isGameOver = session.status === 'WON' || session.status === 'LOST';
+    const activeAttempt = isGameOver ? 5 : session.attemptsUsed;
 
-    const activeAttempt = session.attemptsUsed;
-    if (activeAttempt >= session.maxAttempts) {
+    if (!isGameOver && activeAttempt >= session.maxAttempts) {
       return NextResponse.json({ error: 'Maximum attempts reached' }, { status: 400 });
     }
 
     const durationMs = CLIP_DURATIONS_MS[activeAttempt];
-    const freshToken = generateClipStreamToken(session.id, activeAttempt, 60);
+    const freshToken = generateClipStreamToken(session.id, activeAttempt, 120);
 
     return NextResponse.json(
       {

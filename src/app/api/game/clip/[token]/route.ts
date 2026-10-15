@@ -51,7 +51,9 @@ export async function GET(
     }
 
     // 3. Strict anti-cheat bound check: reject requests for an attempt the session has NOT reached
-    if (attemptIndex > session.attemptsUsed) {
+    // If the game is already finished (WON or LOST), all attempts including the 15s clip are unlocked
+    const isGameOver = session.status === 'WON' || session.status === 'LOST';
+    if (!isGameOver && attemptIndex > session.attemptsUsed) {
       return NextResponse.json(
         {
           error: `Forbidden: Attempt ${attemptIndex} has not yet been unlocked. Current attempt: ${session.attemptsUsed}.`,
