@@ -536,20 +536,23 @@ export default function DhunPage() {
       ? CUMULATIVE_DURATIONS[nextAttempt]
       : null;
 
-  const getDayNumber = (d?: string) => {
-    const base = new Date("2026-05-10").getTime();
-    const cur = d ? new Date(d).getTime() : new Date().getTime();
-    return Math.max(1, Math.floor((cur - base) / 86400000));
-  };
+  const [dayNumber, setDayNumber] = useState<number>(1);
+  const [formattedDate, setFormattedDate] = useState<string>("");
 
-  const getFormattedDate = (d?: string) => {
-    const dateObj = d ? new Date(d) : new Date();
-    return dateObj.toLocaleDateString("en-GB", {
-      day: "numeric",
-      month: "short",
-      year: "numeric",
-    });
-  };
+  useEffect(() => {
+    const base = new Date("2026-05-10").getTime();
+    const cur = challengeDate ? new Date(challengeDate).getTime() : Date.now();
+    setDayNumber(Math.max(1, Math.floor((cur - base) / 86400000)));
+
+    const dateObj = challengeDate ? new Date(challengeDate) : new Date();
+    setFormattedDate(
+      dateObj.toLocaleDateString("en-GB", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+      })
+    );
+  }, [challengeDate]);
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-between bg-[var(--bg-page)] text-[var(--text-primary)] px-3 py-2.5 sm:px-4 sm:py-4 transition-colors duration-150 selection:bg-[#c5e31e]/30 selection:text-neutral-900 dark:selection:text-white">
@@ -677,7 +680,7 @@ export default function DhunPage() {
         <div className="w-full flex items-center justify-between text-[11px] font-mono text-neutral-400 dark:text-neutral-500 px-1">
           <span className="uppercase tracking-wider">
             {gameMode === "DAILY"
-              ? `DAILY #${getDayNumber(challengeDate)}  /  ${getFormattedDate(challengeDate)}`
+              ? `DAILY #${dayNumber}${formattedDate ? `  /  ${formattedDate}` : ""}`
               : "UNLIMITED PRACTICE"}
           </span>
           <div className="flex items-center gap-2">

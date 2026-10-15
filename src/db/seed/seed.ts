@@ -26,6 +26,19 @@ interface SeedCatalogData {
 
 export async function runDatabaseSeed() {
   console.log('Bhai starting seed script for Dhun...');
+
+  // Auto-load environment variables from .env.local and .env if present
+  for (const envFile of ['.env.local', '.env']) {
+    const fullPath = path.resolve(process.cwd(), envFile);
+    if (fs.existsSync(fullPath) && typeof (process as any).loadEnvFile === 'function') {
+      try {
+        (process as any).loadEnvFile(fullPath);
+      } catch {
+        // Continue if already set
+      }
+    }
+  }
+
   const db = await getDb();
   const jsonPath = path.join(__dirname, 'songs.json');
 

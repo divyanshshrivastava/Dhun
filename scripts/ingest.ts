@@ -237,6 +237,7 @@ async function runCliIngestion() {
   const manifestPath = path.join(outputStorageDir, 'ingestion_manifest.json');
   fs.writeFileSync(manifestPath, JSON.stringify(manifestRecords, null, 2), 'utf-8');
   console.log(`\n✓ Ingestion complete! Manifest saved to: ${manifestPath}`);
+  process.exit(0);
 }
 
 if (process.argv[1] && process.argv[1].includes('ingest')) {
