@@ -17,8 +17,8 @@ export class SupabaseClipStorage implements ClipStorage {
   private readonly bucket: string;
 
   constructor(config?: Partial<SupabaseStorageConfig>) {
-    this.supabaseUrl = (config?.supabaseUrl || process.env.SUPABASE_STORAGE_URL || '').replace(/\/$/, '');
-    this.serviceRoleKey = config?.serviceRoleKey || process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+    this.supabaseUrl = (config?.supabaseUrl || process.env.SUPABASE_STORAGE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '').replace(/\/$/, '');
+    this.serviceRoleKey = config?.serviceRoleKey || process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY || '';
     this.bucket = config?.bucketName || process.env.SUPABASE_BUCKET_NAME || 'dhun-audio-clips';
   }
 

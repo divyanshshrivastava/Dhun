@@ -43,6 +43,18 @@ async function generateCatalogReport() {
   console.log('                 DHUN (धुन) — CATALOG AUDIO & CLIP STATUS REPORT                       ');
   console.log('═══════════════════════════════════════════════════════════════════════════════════════\n');
 
+  // Auto-load environment variables from .env.local and .env if present
+  for (const envFile of ['.env.local', '.env']) {
+    const fullPath = path.resolve(process.cwd(), envFile);
+    if (fs.existsSync(fullPath) && typeof (process as any).loadEnvFile === 'function') {
+      try {
+        (process as any).loadEnvFile(fullPath);
+      } catch {
+        // Continue if already set
+      }
+    }
+  }
+
   const catalogPath = path.join(process.cwd(), 'src', 'db', 'seed', 'songs.json');
   if (!fs.existsSync(catalogPath)) {
     console.error(`Catalog seed not found at ${catalogPath}`);

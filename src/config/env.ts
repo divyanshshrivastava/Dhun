@@ -43,7 +43,10 @@ export function validateEnvStartup(): EnvironmentConfig {
   let storageProvider: 'local' | 'r2' | 'supabase' = 'local';
   if (process.env.R2_ACCOUNT_ID && process.env.R2_ACCESS_KEY_ID && process.env.R2_SECRET_ACCESS_KEY) {
     storageProvider = 'r2';
-  } else if (process.env.SUPABASE_STORAGE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+  } else if (
+    (process.env.SUPABASE_STORAGE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL) &&
+    (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY)
+  ) {
     storageProvider = 'supabase';
   }
 

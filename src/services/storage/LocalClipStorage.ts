@@ -84,7 +84,10 @@ export function getClipStorage(): ClipStorage {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       const { R2ClipStorage } = require('./R2ClipStorage');
       globalClipStorage = new R2ClipStorage();
-    } else if (process.env.SUPABASE_STORAGE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    } else if (
+      (process.env.SUPABASE_STORAGE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL) &&
+      (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY)
+    ) {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       const { SupabaseClipStorage } = require('./SupabaseClipStorage');
       globalClipStorage = new SupabaseClipStorage();

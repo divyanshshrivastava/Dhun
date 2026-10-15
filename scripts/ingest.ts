@@ -40,6 +40,18 @@ async function runCliIngestion() {
   const cutter = new AudioCutterService();
   const outputStorageDir = path.join(process.cwd(), 'storage');
 
+  // Auto-load environment variables from .env.local and .env if present
+  for (const envFile of ['.env.local', '.env']) {
+    const fullPath = path.resolve(process.cwd(), envFile);
+    if (fs.existsSync(fullPath) && typeof (process as any).loadEnvFile === 'function') {
+      try {
+        (process as any).loadEnvFile(fullPath);
+      } catch {
+        // Continue if already set
+      }
+    }
+  }
+
   // Load catalog
   const catalogPath = path.join(process.cwd(), 'src', 'db', 'seed', 'songs.json');
   if (!fs.existsSync(catalogPath)) {
@@ -50,12 +62,14 @@ async function runCliIngestion() {
   const catalog = JSON.parse(fs.readFileSync(catalogPath, 'utf-8'));
   const allSongs: SongCatalogItem[] = catalog.songs;
 
-  // Determine provider
-  let provider: AudioSourceProvider = new SyntheticToneProvider();
-  if (args.includes('--apple')) {
-    provider = new AppleMusicPreviewProvider();
-  } else if (args.includes('--local')) {
+  // Determine provider: default to Apple Music Previews for zero-cost real audio
+  let provider: AudioSourceProvider = new AppleMusicPreviewProvider();
+  if (args.includes('--synthetic') || process.env.DHUN_AUDIO_PROVIDER === 'synthetic') {
+    provider = new SyntheticToneProvider();
+  } else if (args.includes('--local') || process.env.DHUN_AUDIO_PROVIDER === 'local') {
     provider = new LocalFileProvider();
+  } else if (args.includes('--apple') || process.env.DHUN_AUDIO_PROVIDER === 'apple') {
+    provider = new AppleMusicPreviewProvider();
   }
 
   const clipStorage = getClipStorage();
@@ -113,7 +127,32 @@ async function runCliIngestion() {
     const track = songsToProcess[i];
     console.log(`\n[${i + 1}/${songsToProcess.length}] Ingesting: "${track.title}" (${track.id})`);
 
+    const force = args.includes('--force');
+    if (!force) {
+      const alreadyHasClips = await checkSongHasAllClips(track.id, clipStorage);
+      if (alreadyHasClips) {
+        console.log(`  ✓ All 6 clips already exist in [${clipStorage.storageName}]. Skipping upload.`);
+        try {
+          const { getDb, schema } = await import('../src/db');
+          const { eq } = await import('drizzle-orm');
+          const db = await getDb();
+          await db.update(schema.songs).set({ active: true }).where(eq(schema.songs.id, track.id));
+        } catch {
+          // DB not available in standalone runner
+        }
+        manifestRecords.push({
+          songId: track.id,
+          title: track.title,
+          active: true,
+          clips: [],
+        });
+        continue;
+      }
+    }
+
     try {
+      // Throttle politely between API searches
+      await new Promise(r => setTimeout(r, 350));
       const sourceResult = await provider.fetchTrack({
         id: track.id,
         title: track.title,

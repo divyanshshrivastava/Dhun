@@ -72,6 +72,9 @@ function loadLocalEnvValues(): string[] {
             !val.includes('localhost') &&
             !val.includes('neon.tech') &&
             !val.includes('replace_with') &&
+            !val.includes('your_') &&
+            !val.includes('_here') &&
+            !val.includes('sample') &&
             !val.includes('dhun_')
           ) {
             secrets.push(val);
