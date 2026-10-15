@@ -2,8 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { cleanupOldSessions } from '@/services/cleanupService';
 
-export const dynamic = 'force-dynamic';
-
 function timingSafeCheck(incoming: string, expected: string): boolean {
   const incBuf = Buffer.from(incoming, 'utf-8');
   const expBuf = Buffer.from(expected, 'utf-8');
