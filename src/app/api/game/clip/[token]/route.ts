@@ -9,7 +9,9 @@ export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ token: string }> }
 ) {
-  await connection();
+  try {
+    await connection();
+  } catch {}
   try {
     const { token } = await params;
 

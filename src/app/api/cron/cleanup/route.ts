@@ -12,7 +12,9 @@ function timingSafeCheck(incoming: string, expected: string): boolean {
 }
 
 export async function GET(req: NextRequest) {
-  await connection();
+  try {
+    await connection();
+  } catch {}
   try {
     const cronSecret = process.env.CRON_SECRET;
     const authHeader = req.headers.get('authorization');

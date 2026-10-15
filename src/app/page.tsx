@@ -9,9 +9,9 @@ import { GuessHistory, GuessRecord } from "../components/GuessHistory";
 import { GameOverModal, SolutionDetails } from "../components/modals/GameOverModal";
 import { StatsModal, PlayerStatsData } from "../components/modals/StatsModal";
 import { HelpModal } from "../components/modals/HelpModal";
-import { PracticeModeSelector, PracticeFilters } from "../components/PracticeModeSelector";
+import type { PracticeFilters } from "../components/PracticeModeSelector";
 import { CatalogSongItem } from "../lib/search/catalogSearch";
-import { HelpCircle, BarChart2, Sun, Moon, Share2, ExternalLink, Clock, Headphones, Shuffle } from "lucide-react";
+import { HelpCircle, BarChart2, Sun, Moon, Share2, ExternalLink, Clock, Headphones } from "lucide-react";
 
 export default function DhunPage() {
   // Theme State
@@ -670,49 +670,6 @@ export default function DhunPage() {
           </h1>
         </div>
 
-        {/* Mode Selector Segmented Pill */}
-        <div className="flex items-center p-0.5 bg-neutral-100 dark:bg-[#15171c] border border-neutral-200 dark:border-neutral-800 rounded-xl text-xs font-semibold shadow-xs">
-          <button
-            type="button"
-            onClick={() => handleSelectMode("DAILY")}
-            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg transition-all cursor-pointer ${
-              gameMode === "DAILY"
-                ? "bg-white dark:bg-[#222631] text-neutral-950 dark:text-white shadow-xs font-bold"
-                : "text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-200 font-medium"
-            }`}
-          >
-            <span className="text-xs">♪</span>
-            <span>Daily Dhun</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => handleSelectMode("PRACTICE")}
-            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg transition-all cursor-pointer ${
-              gameMode === "PRACTICE"
-                ? "bg-white dark:bg-[#222631] text-neutral-950 dark:text-white shadow-xs font-bold"
-                : "text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-200 font-medium"
-            }`}
-          >
-            <span className="text-xs">🔀</span>
-            <span>Practice</span>
-          </button>
-        </div>
-
-        {/* Practice Mode Filter Panel (only visible when in PRACTICE mode) */}
-        {gameMode === "PRACTICE" && (
-          <div className="w-full">
-            <PracticeModeSelector
-              currentMode={gameMode}
-              filters={practiceFilters}
-              isLoading={isLoadingAudio}
-              onSelectMode={handleSelectMode}
-              onFilterChange={handleFilterChange}
-              onNewPracticeSong={handleNewPracticeSong}
-            />
-          </div>
-        )}
-
         {/* Sub-header Context Row: Daily # / Date and Sound On */}
         <div className="w-full flex items-center justify-between text-[11px] font-mono text-neutral-400 dark:text-neutral-500 px-1">
           <span className="uppercase tracking-wider">
@@ -876,35 +833,15 @@ export default function DhunPage() {
                 </div>
               )}
 
-              {/* Bottom Actions based on Mode */}
-              <div className="flex flex-col sm:flex-row items-center justify-between gap-2.5 pt-0.5">
-                {gameMode === "DAILY" ? (
-                  <>
-                    <div className="flex items-center gap-1.5 text-xs text-neutral-500 dark:text-neutral-400">
-                      <Clock className="w-3.5 h-3.5" />
-                      <span>Next Dhun in:</span>
-                      <span className="font-mono font-bold text-[#8fa70e] dark:text-[#d6f830]">
-                        {timeLeft || "--:--:--"}
-                      </span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => handleSelectMode("PRACTICE")}
-                      className="btn-tactile w-full sm:w-auto px-4 py-2 bg-[#c5e31e] hover:bg-[#b4d216] dark:bg-[#d6f830] dark:hover:bg-[#c2e424] text-neutral-950 font-bold text-xs rounded-xl transition-all cursor-pointer shadow-sm"
-                    >
-                      🎯 Play Unlimited Practice
-                    </button>
-                  </>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={handleNewPracticeSong}
-                    disabled={isLoadingAudio}
-                    className="btn-tactile w-full py-2 bg-[#c5e31e] hover:bg-[#b4d216] dark:bg-[#d6f830] dark:hover:bg-[#c2e424] text-neutral-950 font-bold text-xs rounded-xl transition-all cursor-pointer shadow-sm flex items-center justify-center gap-1.5"
-                  >
-                    <span>Play Another Practice Song 🎲</span>
-                  </button>
-                )}
+              {/* Bottom Actions */}
+              <div className="flex items-center justify-center gap-2.5 pt-0.5">
+                <div className="flex items-center gap-1.5 text-xs text-neutral-500 dark:text-neutral-400">
+                  <Clock className="w-3.5 h-3.5" />
+                  <span>Next Dhun in:</span>
+                  <span className="font-mono font-bold text-[#8fa70e] dark:text-[#d6f830]">
+                    {timeLeft || "--:--:--"}
+                  </span>
+                </div>
               </div>
             </div>
           )}
