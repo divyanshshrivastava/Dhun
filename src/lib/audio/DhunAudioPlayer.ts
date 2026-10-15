@@ -31,6 +31,8 @@ export class DhunAudioPlayer {
   private isUnlocked: boolean = false;
   private currentAttemptIndex: number = 0;
   private tokenRefreshCallback: ((attemptIndex: number) => Promise<string>) | null = null;
+  private bufferCache: Map<number, AudioBuffer> = new Map();
+  private abortController: AbortController | null = null;
 
   constructor(callbacks?: PlayerCallbacks) {
     if (callbacks) {
@@ -41,6 +43,10 @@ export class DhunAudioPlayer {
     if (typeof document !== 'undefined') {
       document.addEventListener('visibilitychange', this.handleVisibilityChange);
     }
+  }
+
+  clearBufferCache(): void {
+    this.bufferCache.clear();
   }
 
   // Ensures AudioContext is created and unlocked via user gesture
@@ -93,7 +99,7 @@ export class DhunAudioPlayer {
     this.tokenRefreshCallback = cb;
   }
 
-  // Immediately fetches and decodes an audio slice into memory
+  // Immediately fetches and decodes an audio slice into memory with client-side caching
   async loadClip(
     clipStreamUrl: string,
     attemptIndex: number,
@@ -101,10 +107,31 @@ export class DhunAudioPlayer {
     refreshTokenCallback?: () => Promise<string>
   ): Promise<boolean> {
     this.stop();
-    this.setStatus('loading');
     this.currentAttemptIndex = attemptIndex;
     this.clipDurationMs = durationMs;
     this.pauseOffsetSec = 0;
+
+    // Fast path: If this attempt is already decoded in memory, switch to it immediately in 0ms!
+    if (this.bufferCache.has(attemptIndex)) {
+      this.currentBuffer = this.bufferCache.get(attemptIndex)!;
+      if (this.currentBuffer.duration > 0) {
+        this.clipDurationMs = Math.round(this.currentBuffer.duration * 1000);
+      }
+      this.setStatus('ready');
+      return true;
+    }
+
+    this.setStatus('loading');
+
+    // Abort previous in-flight request if user quickly skipped
+    if (this.abortController) {
+      try { this.abortController.abort(); } catch {}
+    }
+    const controller = new AbortController();
+    this.abortController = controller;
+    const timeoutId = setTimeout(() => {
+      try { controller.abort(); } catch {}
+    }, 10000); // 10s maximum network timeout to guarantee no infinite loading
 
     let targetUrl = clipStreamUrl;
     const effectiveRefresh =
@@ -112,13 +139,22 @@ export class DhunAudioPlayer {
       (this.tokenRefreshCallback ? () => this.tokenRefreshCallback!(attemptIndex) : undefined);
 
     try {
-      let response = await fetch(targetUrl);
+      let response: Response;
+      try {
+        response = await fetch(targetUrl, { signal: controller.signal });
+      } catch (fetchErr: any) {
+        if (fetchErr.name === 'AbortError') {
+          // If aborted by a newer skip, don't trigger error
+          return false;
+        }
+        throw fetchErr;
+      }
 
       // If token expired (410 Gone), try refreshing once automatically
       if ((response.status === 410 || response.status === 403) && effectiveRefresh) {
         try {
           targetUrl = await effectiveRefresh();
-          response = await fetch(targetUrl);
+          response = await fetch(targetUrl, { signal: controller.signal });
         } catch {
           // fallback to error
         }
@@ -129,16 +165,25 @@ export class DhunAudioPlayer {
       }
 
       const arrayBuffer = await response.arrayBuffer();
+      clearTimeout(timeoutId);
+
       const ctx = this.ensureAudioContext();
 
       // Decode PCM WAV or AAC audio data asynchronously into an in-memory AudioBuffer
-      this.currentBuffer = await ctx.decodeAudioData(arrayBuffer);
+      const decodedBuffer = await ctx.decodeAudioData(arrayBuffer);
+      this.currentBuffer = decodedBuffer;
+      this.bufferCache.set(attemptIndex, decodedBuffer);
+
       if (this.currentBuffer.duration > 0) {
         this.clipDurationMs = Math.round(this.currentBuffer.duration * 1000);
       }
       this.setStatus('ready');
       return true;
     } catch (err: unknown) {
+      clearTimeout(timeoutId);
+      if ((err as any)?.name === 'AbortError') {
+        return false;
+      }
       const errorMsg = err instanceof Error ? err.message : 'Audio decode failed';
       this.setStatus('error');
       this.callbacks.onError?.(errorMsg);
@@ -159,12 +204,19 @@ export class DhunAudioPlayer {
   }
 
   // Hardware-timed playback using AudioBufferSourceNode.onended (NO setTimeout)
-  play(): void {
+  async play(): Promise<void> {
     if (!this.currentBuffer) {
       this.callbacks.onError?.("Audio clip is loading or unavailable. Please click Retry Audio.");
       return;
     }
     const ctx = this.ensureAudioContext();
+    if (ctx.state === 'suspended') {
+      try {
+        await ctx.resume();
+      } catch {
+        // ignore
+      }
+    }
 
     if (this.status === 'playing') return;
 
@@ -296,6 +348,11 @@ export class DhunAudioPlayer {
 
   destroy(): void {
     this.stop();
+    if (this.abortController) {
+      try { this.abortController.abort(); } catch {}
+      this.abortController = null;
+    }
+    this.bufferCache.clear();
     if (typeof document !== 'undefined') {
       document.removeEventListener('visibilitychange', this.handleVisibilityChange);
     }

@@ -68,13 +68,19 @@ export async function GET(
     const storageKey = generateOpaqueClipKey(session.songId, attemptIndex, format);
     const clipStorage = getClipStorage();
 
-    // 5. If clip is missing from storage, generate on-demand
-    const clipExists = await clipStorage.hasClip(storageKey);
-    if (!clipExists) {
+    // Trigger background pre-warming of all clips for this song so subsequent attempts are instantaneous
+    const { prewarmClipsForSong } = await import('@/services/storage/ClipStorage');
+    prewarmClipsForSong(session.songId, clipStorage).catch(() => {});
+
+    // 5. Try fetching directly (fast path, checks in-memory cache)
+    let storedClip: import('@/services/storage/ClipStorage').StoredClipData;
+    try {
+      storedClip = await clipStorage.getClip(storageKey);
+    } catch {
+      // If missing from storage, generate on-demand as fallback
       let masterBuffer: Buffer | null = null;
       let inputExt = 'wav';
 
-      // 1. Check if a real audio master exists in audio-masters/
       try {
         const songItem = engine.getCatalogSong(session.songId);
         const localMaster = await localProvider.fetchTrack({
@@ -84,7 +90,6 @@ export async function GET(
         masterBuffer = localMaster.audioBuffer;
         inputExt = localMaster.mimeType.includes('mpeg') ? 'mp3' : 'wav';
       } catch {
-        // 2. Fall back to procedural synthetic Indian tone provider
         const syntheticMaster = await syntheticProvider.fetchTrack({
           id: session.songId,
           title: session.songId,
@@ -102,9 +107,9 @@ export async function GET(
         const mime = slice.format === 'wav' ? 'audio/wav' : 'audio/mp4';
         await clipStorage.saveClip(slice.storageKey, slice.buffer, mime);
       }
-    }
 
-    const storedClip = await clipStorage.getClip(storageKey);
+      storedClip = await clipStorage.getClip(storageKey);
+    }
 
     // 6. Return audio stream with strict private no-store headers
     return new Response(new Uint8Array(storedClip.buffer), {

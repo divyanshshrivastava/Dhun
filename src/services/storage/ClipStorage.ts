@@ -28,3 +28,18 @@ export async function checkSongHasAllClips(songId: string, storage: ClipStorage)
   }
   return true;
 }
+
+// Asynchronously loads all 6 clips for a given song into storage memory cache
+export async function prewarmClipsForSong(songId: string, storage: ClipStorage): Promise<void> {
+  const promises: Promise<any>[] = [];
+  for (let attempt = 0; attempt < 6; attempt++) {
+    const format = attempt < 3 ? 'wav' : 'm4a';
+    const opaqueKey = generateOpaqueClipKey(songId, attempt, format);
+    const plainKey = `clips/${songId}/attempt_${attempt}.${format}`;
+    promises.push(
+      storage.getClip(opaqueKey).catch(() => storage.getClip(plainKey).catch(() => {}))
+    );
+  }
+  await Promise.all(promises);
+}
+

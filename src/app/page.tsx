@@ -166,10 +166,21 @@ export default function DhunPage() {
     }
   };
 
+  // Safety timeout: Never allow isLoadingAudio to remain true for > 5 seconds
+  useEffect(() => {
+    if (isLoadingAudio) {
+      const timer = setTimeout(() => {
+        setIsLoadingAudio(false);
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [isLoadingAudio]);
+
   // 2. Start or Resume Game Session (Daily or Practice)
   const startSession = useCallback(
     async (mode: "DAILY" | "PRACTICE", customFilters?: PracticeFilters) => {
       if (!guestId) return;
+      playerRef.current?.clearBufferCache();
       setGameMode(mode);
       setIsLoadingAudio(true);
       setAudioError(null);

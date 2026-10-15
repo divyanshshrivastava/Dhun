@@ -10,6 +10,9 @@ export interface SupabaseStorageConfig {
   bucketName: string;
 }
 
+// Fast in-memory cache to make repeated audio chunk queries sub-millisecond
+const supabaseClipCache = new Map<string, StoredClipData>();
+
 export class SupabaseClipStorage implements ClipStorage {
   readonly storageName = 'supabase_storage';
   private readonly supabaseUrl: string;
@@ -24,6 +27,12 @@ export class SupabaseClipStorage implements ClipStorage {
 
   async saveClip(storageKey: string, buffer: Buffer, mimeType: string): Promise<string> {
     const sanitizedKey = storageKey.replace(/^[/\\]+/, '');
+    supabaseClipCache.set(sanitizedKey, {
+      buffer,
+      sizeBytes: buffer.byteLength,
+      mimeType,
+    });
+
     const uploadUrl = `${this.supabaseUrl}/storage/v1/object/${this.bucket}/${sanitizedKey}`;
 
     const res = await fetch(uploadUrl, {
@@ -47,6 +56,11 @@ export class SupabaseClipStorage implements ClipStorage {
 
   async getClip(storageKey: string): Promise<StoredClipData> {
     const sanitizedKey = storageKey.replace(/^[/\\]+/, '');
+
+    if (supabaseClipCache.has(sanitizedKey)) {
+      return supabaseClipCache.get(sanitizedKey)!;
+    }
+
     const downloadUrl = `${this.supabaseUrl}/storage/v1/object/authenticated/${this.bucket}/${sanitizedKey}`;
 
     const res = await fetch(downloadUrl, {
@@ -65,16 +79,23 @@ export class SupabaseClipStorage implements ClipStorage {
     const buffer = Buffer.from(arrayBuffer);
     const mimeType = res.headers.get('content-type') || 'audio/wav';
 
-    return {
+    const result: StoredClipData = {
       buffer,
       sizeBytes: buffer.byteLength,
       mimeType,
     };
+    supabaseClipCache.set(sanitizedKey, result);
+
+    return result;
   }
 
   async hasClip(storageKey: string): Promise<boolean> {
+    const sanitizedKey = storageKey.replace(/^[/\\]+/, '');
+    if (supabaseClipCache.has(sanitizedKey)) {
+      return true;
+    }
+
     try {
-      const sanitizedKey = storageKey.replace(/^[/\\]+/, '');
       const downloadUrl = `${this.supabaseUrl}/storage/v1/object/authenticated/${this.bucket}/${sanitizedKey}`;
 
       const res = await fetch(downloadUrl, {

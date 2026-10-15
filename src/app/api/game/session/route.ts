@@ -60,6 +60,17 @@ export async function POST(req: NextRequest) {
       sessionPayload = await engine.createPracticeSession(guestId, filters);
     }
 
+    // Background pre-warm all 6 audio clips into server cache for instant playback
+    engine.getSessionById(sessionPayload.sessionId).then((s) => {
+      if (s?.songId) {
+        import('@/services/storage/LocalClipStorage').then(({ getClipStorage }) => {
+          import('@/services/storage/ClipStorage').then(({ prewarmClipsForSong }) => {
+            prewarmClipsForSong(s.songId, getClipStorage()).catch(() => {});
+          });
+        });
+      }
+    }).catch(() => {});
+
     return NextResponse.json(sessionPayload, {
       status: 200,
       headers: {
