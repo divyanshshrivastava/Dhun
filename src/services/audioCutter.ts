@@ -56,20 +56,8 @@ export interface SlicingOptions {
   autoTrimSilence?: boolean;
   fastNormalize?: boolean;
 }
-
-// Generates an unguessable opaque filename so users cannot inspect network requests
-export function generateOpaqueClipKey(
-  songId: string,
-  attemptIndex: number,
-  format: string,
-  secret = getServerSecret()
-): string {
-  const hash = crypto
-    .createHmac('sha256', secret)
-    .update(`${songId}_attempt_${attemptIndex}_dhun_audio`)
-    .digest('hex');
-  return `clips/${hash}.${format}`;
-}
+import { generateOpaqueClipKey } from '@/lib/security/clipKey';
+export { generateOpaqueClipKey };
 
 export class AudioCutterService {
   private readonly ffmpegPath: string;

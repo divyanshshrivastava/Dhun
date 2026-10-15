@@ -15,7 +15,7 @@ export interface ClipStorage {
   hasClip(storageKey: string): Promise<boolean>;
 }
 
-import { generateOpaqueClipKey } from '../audioCutter';
+import { generateOpaqueClipKey } from '@/lib/security/clipKey';
 
 // Verifies that all 6 cumulative clips exist for a given song in storage
 export async function checkSongHasAllClips(songId: string, storage: ClipStorage): Promise<boolean> {

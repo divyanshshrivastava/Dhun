@@ -1,19 +1,15 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse, connection } from 'next/server';
 import { verifyClipStreamToken } from '@/lib/security/clipToken';
 import { getGameEngine } from '@/services/gameEngine';
 import { getClipStorage } from '@/services/storage/LocalClipStorage';
-import { generateOpaqueClipKey, AudioCutterService } from '@/services/audioCutter';
-import { SyntheticToneProvider } from '@/services/audioSources/SyntheticToneProvider';
-import { LocalFileProvider } from '@/services/audioSources/LocalFileProvider';
+import { generateOpaqueClipKey } from '@/lib/security/clipKey';
 
-const audioCutter = new AudioCutterService();
-const syntheticProvider = new SyntheticToneProvider();
-const localProvider = new LocalFileProvider();
 
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ token: string }> }
 ) {
+  await connection();
   try {
     const { token } = await params;
 
@@ -84,19 +80,27 @@ export async function GET(
       } catch {
         // In local development only: generate on-demand if missing
         if (process.env.NODE_ENV !== 'production') {
+          const { AudioCutterService } = await import('@/services/audioCutter');
+          const { SyntheticToneProvider } = await import('@/services/audioSources/SyntheticToneProvider');
+          const { LocalFileProvider } = await import('@/services/audioSources/LocalFileProvider');
+
+          const cutter = new AudioCutterService();
+          const synthetic = new SyntheticToneProvider();
+          const local = new LocalFileProvider();
+
           let masterBuffer: Buffer | null = null;
           let inputExt = 'wav';
 
           try {
             const songItem = engine.getCatalogSong(session.songId);
-            const localMaster = await localProvider.fetchTrack({
+            const localMaster = await local.fetchTrack({
               id: session.songId,
               title: songItem?.title || session.songId,
             });
             masterBuffer = localMaster.audioBuffer;
             inputExt = localMaster.mimeType.includes('mpeg') ? 'mp3' : 'wav';
           } catch {
-            const syntheticMaster = await syntheticProvider.fetchTrack({
+            const syntheticMaster = await synthetic.fetchTrack({
               id: session.songId,
               title: session.songId,
             });
@@ -104,7 +108,7 @@ export async function GET(
             inputExt = 'wav';
           }
 
-          const slices = await audioCutter.sliceTrack(masterBuffer, inputExt, {
+          const slices = await cutter.sliceTrack(masterBuffer, inputExt, {
             songId: session.songId,
             fastNormalize: true,
           });
@@ -135,6 +139,7 @@ export async function GET(
     });
   } catch (err: unknown) {
     const errorMsg = err instanceof Error ? err.message : 'Audio streaming failed';
+    console.error('[Clip Stream Route Error]:', err);
     return NextResponse.json({ error: errorMsg }, { status: 500 });
   }
 }

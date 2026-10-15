@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse, connection } from 'next/server';
 import crypto from 'crypto';
 import { cleanupOldSessions } from '@/services/cleanupService';
 
@@ -12,6 +12,7 @@ function timingSafeCheck(incoming: string, expected: string): boolean {
 }
 
 export async function GET(req: NextRequest) {
+  await connection();
   try {
     const cronSecret = process.env.CRON_SECRET;
     const authHeader = req.headers.get('authorization');
