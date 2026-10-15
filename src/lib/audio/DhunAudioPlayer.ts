@@ -161,7 +161,12 @@ export class DhunAudioPlayer {
       }
 
       if (!response.ok) {
-        throw new Error(`Failed to load audio slice: HTTP ${response.status}`);
+        let errorDetail = `HTTP ${response.status}`;
+        try {
+          const errData = await response.json();
+          if (errData?.error) errorDetail = errData.error;
+        } catch {}
+        throw new Error(`Failed to load audio slice: ${errorDetail}`);
       }
 
       const arrayBuffer = await response.arrayBuffer();

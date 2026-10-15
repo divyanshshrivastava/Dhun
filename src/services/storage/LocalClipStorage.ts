@@ -4,6 +4,8 @@
 import fs from 'fs';
 import path from 'path';
 import { ClipStorage, StoredClipData } from './ClipStorage';
+import { SupabaseClipStorage } from './SupabaseClipStorage';
+import { R2ClipStorage } from './R2ClipStorage';
 
 export class LocalClipStorage implements ClipStorage {
   readonly storageName = 'local_disk';
@@ -81,15 +83,11 @@ let globalClipStorage: ClipStorage | null = null;
 export function getClipStorage(): ClipStorage {
   if (!globalClipStorage) {
     if (process.env.R2_ACCOUNT_ID && process.env.R2_ACCESS_KEY_ID && process.env.R2_SECRET_ACCESS_KEY) {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { R2ClipStorage } = require('./R2ClipStorage');
       globalClipStorage = new R2ClipStorage();
     } else if (
       (process.env.SUPABASE_STORAGE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL) &&
       (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY)
     ) {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { SupabaseClipStorage } = require('./SupabaseClipStorage');
       globalClipStorage = new SupabaseClipStorage();
     } else {
       globalClipStorage = new LocalClipStorage();
@@ -97,3 +95,4 @@ export function getClipStorage(): ClipStorage {
   }
   return globalClipStorage!;
 }
+

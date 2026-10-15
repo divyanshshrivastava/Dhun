@@ -77,38 +77,48 @@ export async function GET(
     try {
       storedClip = await clipStorage.getClip(storageKey);
     } catch {
-      // If missing from storage, generate on-demand as fallback
-      let masterBuffer: Buffer | null = null;
-      let inputExt = 'wav';
-
+      // Fallback: Check if clip is stored under plain key format
       try {
-        const songItem = engine.getCatalogSong(session.songId);
-        const localMaster = await localProvider.fetchTrack({
-          id: session.songId,
-          title: songItem?.title || session.songId,
-        });
-        masterBuffer = localMaster.audioBuffer;
-        inputExt = localMaster.mimeType.includes('mpeg') ? 'mp3' : 'wav';
+        const plainKey = `clips/${session.songId}/attempt_${attemptIndex}.${format}`;
+        storedClip = await clipStorage.getClip(plainKey);
       } catch {
-        const syntheticMaster = await syntheticProvider.fetchTrack({
-          id: session.songId,
-          title: session.songId,
-        });
-        masterBuffer = syntheticMaster.audioBuffer;
-        inputExt = 'wav';
+        // In local development only: generate on-demand if missing
+        if (process.env.NODE_ENV !== 'production') {
+          let masterBuffer: Buffer | null = null;
+          let inputExt = 'wav';
+
+          try {
+            const songItem = engine.getCatalogSong(session.songId);
+            const localMaster = await localProvider.fetchTrack({
+              id: session.songId,
+              title: songItem?.title || session.songId,
+            });
+            masterBuffer = localMaster.audioBuffer;
+            inputExt = localMaster.mimeType.includes('mpeg') ? 'mp3' : 'wav';
+          } catch {
+            const syntheticMaster = await syntheticProvider.fetchTrack({
+              id: session.songId,
+              title: session.songId,
+            });
+            masterBuffer = syntheticMaster.audioBuffer;
+            inputExt = 'wav';
+          }
+
+          const slices = await audioCutter.sliceTrack(masterBuffer, inputExt, {
+            songId: session.songId,
+            fastNormalize: true,
+          });
+
+          for (const slice of slices) {
+            const mime = slice.format === 'wav' ? 'audio/wav' : 'audio/mp4';
+            await clipStorage.saveClip(slice.storageKey, slice.buffer, mime);
+          }
+
+          storedClip = await clipStorage.getClip(storageKey);
+        } else {
+          throw new Error(`Audio clip not found in storage for key: ${storageKey}`);
+        }
       }
-
-      const slices = await audioCutter.sliceTrack(masterBuffer, inputExt, {
-        songId: session.songId,
-        fastNormalize: true,
-      });
-
-      for (const slice of slices) {
-        const mime = slice.format === 'wav' ? 'audio/wav' : 'audio/mp4';
-        await clipStorage.saveClip(slice.storageKey, slice.buffer, mime);
-      }
-
-      storedClip = await clipStorage.getClip(storageKey);
     }
 
     // 6. Return audio stream with strict private no-store headers
