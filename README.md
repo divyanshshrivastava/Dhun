@@ -1,7 +1,7 @@
 # Dhun (धुन)
 
 > **The Daily Indian Music Guessing Game**  
-> Play live at: **[dhun.in](https://dhun.in)**
+> Play live at: **[dhun](https://dhun-psi.vercel.app/)**
 
 Dhun (धुन) is a Heardle-style audio guessing game built specifically for Indian music. Players identify songs across Bollywood, regional cinema (Tamil, Telugu, Punjabi, Malayalam, Kannada, Bengali, Marathi, Gujarati), Indian Indie, and Ghazals from progressively longer intro slices.
 
