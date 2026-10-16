@@ -1,0 +1,13 @@
+[build]
+  command = "npm run build"
+  publish = ".next"
+
+[build.environment]
+  NODE_VERSION = "22"
+  # These values are not sensitive: the bucket name ("clips") is a common word that
+  # appears throughout the source, and the public app URL is intentionally rendered
+  # into page metadata. Excluding them prevents false positives in secrets scanning.
+  SECRETS_SCAN_OMIT_KEYS = "SUPABASE_BUCKET_NAME,NEXT_PUBLIC_APP_URL"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
