@@ -27,7 +27,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "https://dhun.in"),
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "https://dhun-psi.vercel.app"),
   title: "Dhun (धुन) — Daily Indian Music Guessing Game",
   description:
     "Can you guess today's Indian song from short audio clips? A daily musical Heardle-style puzzle across Bollywood, Tollywood, Punjabi, Indie, and more.",
@@ -44,7 +44,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Dhun (धुन) — Daily Indian Music Guessing Game",
     description: "Guess the Indian song from short audio snippets. 6 attempts, 15 seconds.",
-    url: "https://dhun.in",
+    url: "https://dhun-psi.vercel.app",
     siteName: "Dhun",
     locale: "en_IN",
     type: "website",
@@ -54,6 +54,13 @@ export const metadata: Metadata = {
     title: "Dhun (धुन) — Daily Indian Music Guessing Game",
     description: "Guess the Indian song from short audio snippets. 6 attempts, 15 seconds.",
     creator: "@dhungame",
+  },
+  icons: {
+    icon: [
+      { url: "/icon.svg", type: "image/svg+xml" },
+    ],
+    shortcut: "/icon.svg",
+    apple: "/icon.svg",
   },
   robots: {
     index: true,
